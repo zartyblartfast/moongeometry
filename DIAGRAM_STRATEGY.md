@@ -1,5 +1,8 @@
 # Diagram Strategy
 
+> **Documentation status:** This is a planning / next-design document. The current runnable app is in `app/` and is a React/Vite/Three.js two-view prototype, not the full SVG-first Moon Visibility Explorer described here. See `README.md` for the current build status.
+
+
 MoonGeometry's hardest implementation challenge is not general page layout; it is making the diagrams both correct and visually understandable.
 
 The selected UI shell direction is:

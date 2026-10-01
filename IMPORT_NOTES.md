@@ -43,7 +43,7 @@ Verification status:
 
 - dependencies installed successfully
 - TypeScript typecheck passed
-- test suite passed: 55 tests, 0 failures
+- test suite passed: 64 tests, 0 failures, including `src/lib/astro.test.ts` astronomy/model tests
 - production build passed
 - migration step skipped because `DATABASE_URL` is not set; the app reports that PGLite fallback migrates itself
 

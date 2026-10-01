@@ -1,5 +1,8 @@
 # Required Diagrams
 
+> **Documentation status:** This is a planning / next-design document. The current runnable app is in `app/` and is a React/Vite/Three.js two-view prototype, not the full SVG-first Moon Visibility Explorer described here. See `README.md` for the current build status.
+
+
 This document defines the diagrams MoonGeometry should provide and what each one is responsible for explaining.
 
 The goal is not to maximize the number of diagrams. The goal is to choose a small set of diagrams where each one answers a distinct user question clearly.

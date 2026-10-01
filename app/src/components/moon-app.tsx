@@ -222,7 +222,7 @@ export function MoonApp() {
             <Stat k="Top of path" v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)} />
             <Stat k="Formula" v={deg1(sky.hFormula)} />
             <Stat k="Rise" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : ev.rise ? formatClock(ev.rise, lon) : "—"} />
-            <Stat k="Set" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : ev.set ? formatClock(ev.set, lon) : "—"} />
+            <Stat k="Set" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : ev.set ? formatClock(ev.set, lon) : "—"} />
           </dl>
           <p className="text-sm text-fg">
             h max = 90° − |{lat.toFixed(1)}° − {deg1(sky.decDeg)}|
@@ -289,7 +289,7 @@ export function MoonApp() {
         moonEclLonDeg={moonEclLonDeg}
         moonEclLatDeg={moonEclLatDeg}
         rise={ev.rise ? formatClock(ev.rise, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : "—"}
-        set={ev.set ? formatClock(ev.set, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : "—"}
+        set={ev.set ? formatClock(ev.set, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : "—"}
       />
     ) : null}
     </>
@@ -407,11 +407,15 @@ function ExplainPanel({
           {tab === "science" ? (
             <div className="space-y-4">
               <p className="text-base text-fg">Scientific basis and history</p>
+              <p>
+                This prototype does not implement a full Keplerian ellipse, Cassini-state libration model, or modern numerical ephemeris. The current picture is an educational model built from mean solar/lunar longitude, a fixed approximate lunar inclination, and spherical trigonometry for the local sky conversion.
+              </p>
               <ul className="space-y-3">
-                <li><strong className="text-fg">Kepler</strong> described the mathematical geometry of orbital motion: elliptical orbits, equal areas in equal times, and the period-distance relationship.</li>
-                <li><strong className="text-fg">Newton</strong> explained the cause: universal gravitation and motion. His work connected the Moon's orbit around Earth with the same gravity that makes bodies fall on Earth.</li>
-                <li><strong className="text-fg">Cassini</strong> formulated empirical laws for the Moon's rotation and orientation, including its synchronous spin-orbit behaviour and the relationship between the Moon's equator, orbit plane and the ecliptic.</li>
-                <li><strong className="text-fg">Modern ephemerides</strong> extend this lineage with precise reference frames, time standards, perturbation models and observer corrections.</li>
+                <li><strong className="text-fg">Implemented here:</strong> mean longitude for the Sun and Moon, an approximate 5.1° lunar-orbit tilt, phase from Sun-Moon elongation, and local altitude/azimuth from latitude, longitude, time, declination and hour angle.</li>
+                <li><strong className="text-fg">Kepler</strong> is historical context for orbital geometry and the later understanding that real orbits are elliptical; this prototype currently uses a simpler mean circular orbit.</li>
+                <li><strong className="text-fg">Newton</strong> is context for the physical cause of orbital motion: gravity and motion. The app does not numerically integrate gravitational forces.</li>
+                <li><strong className="text-fg">Cassini</strong> is context for lunar rotation and orientation: the Moon's synchronous spin and the relationship between its equator, orbit plane and the ecliptic. The app does not yet calculate libration or Cassini-state orientation.</li>
+                <li><strong className="text-fg">Modern ephemerides</strong> are the precision standard for production-grade positions, using reference frames, time standards, perturbation models and observer corrections.</li>
               </ul>
               <p className="text-base text-fg">Further reading</p>
               <ul className="grid gap-2">

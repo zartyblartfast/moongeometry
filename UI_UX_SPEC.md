@@ -1,5 +1,8 @@
 # UI / UX Specification
 
+> **Documentation status:** This is a planning / next-design document. The current runnable app is in `app/` and is a React/Vite/Three.js two-view prototype, not the full SVG-first Moon Visibility Explorer described here. See `README.md` for the current build status.
+
+
 # 1. Design Intent
 
 MoonGeometry must look like a polished desktop scientific visualization website.
