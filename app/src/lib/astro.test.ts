@@ -1,20 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  daysSinceJ2000,
+  eclipticPole,
+  equatorialUnit,
   formulaAltitudeDeg,
+  formatSolarAndUtc,
+  formatUtcMomentLine,
   horizon,
+  hoopPoints,
   meridianAltitudeDeg,
   moonEquatorial,
   nearestFullEvening,
   phaseFromUnits,
   skyPath,
   snapshot,
-  sunEquatorial,
   sunBeam,
-  eclipticPole,
-  hoopPoints,
-  daysSinceJ2000,
-  equatorialUnit,
+  sunEquatorial,
+  utcOffsetPhrase,
 } from "./astro.ts";
 
 const DEG = Math.PI / 180;
@@ -133,4 +136,21 @@ test("sun rays lie in the ecliptic and stay parallel", () => {
     );
     assert.ok(span > 1.2 && span < 1.6, `beam width ${span}`);
   }
+});
+
+
+test("UTC offset phrase follows mean solar longitude sign", () => {
+  assert.equal(utcOffsetPhrase(15), "1h behind this clock");
+  assert.equal(utcOffsetPhrase(-15), "1h ahead of this clock");
+  assert.equal(utcOffsetPhrase(0), "same as this clock");
+  assert.equal(utcOffsetPhrase(6), "24 min behind this clock");
+  assert.equal(utcOffsetPhrase(-74), "4h 56m ahead of this clock");
+});
+
+test("UTC labels describe the same instant as the mean solar clock", () => {
+  const instant = Date.UTC(2026, 9, 1, 20, 36, 0);
+  assert.equal(formatUtcMomentLine(instant, 6), "Same moment: 20:36 UTC, 1 Oct · 24 min behind this clock.");
+  assert.equal(formatSolarAndUtc(instant, 6), "21:00 · 20:36 UTC");
+  const crossDate = Date.UTC(2026, 9, 1, 23, 30, 0);
+  assert.equal(formatSolarAndUtc(crossDate, 15), "00:30 · 23:30 UTC, 1 Oct");
 });

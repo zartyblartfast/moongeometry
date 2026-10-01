@@ -6,6 +6,7 @@ const DEG = Math.PI / 180;
 const OBLIQUITY = OBLIQUITY_DEG * DEG;
 const MOON_INC = MOON_INC_DEG * DEG;
 const J2000 = Date.UTC(2000, 0, 1, 12, 0, 0);
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export type Vec3 = [number, number, number];
 
@@ -404,10 +405,47 @@ export function formatClock(instant: number, lonDeg: number): string {
   return `${pad(p.h)}:${pad(p.min)}`;
 }
 
+export function formatUtcClock(instant: number): string {
+  const utc = new Date(instant);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(utc.getUTCHours())}:${pad(utc.getUTCMinutes())}`;
+}
+
+function formatUtcDayMonth(instant: number, includeYear: boolean): string {
+  const utc = new Date(instant);
+  const base = `${utc.getUTCDate()} ${MONTHS[utc.getUTCMonth()]}`;
+  return includeYear ? `${base} ${utc.getUTCFullYear()}` : base;
+}
+
+export function utcOffsetPhrase(lonDeg: number): string {
+  const minutes = Math.round(lonDeg * 4);
+  const abs = Math.abs(minutes);
+  if (abs < 1) return "same as this clock";
+  const hours = Math.floor(abs / 60);
+  const mins = abs % 60;
+  const amount = hours === 0 ? `${mins} min` : mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+  return `${amount} ${minutes > 0 ? "behind" : "ahead of"} this clock`;
+}
+
+export function formatUtcMomentLine(instant: number, lonDeg: number): string {
+  const local = localParts(instant, lonDeg);
+  const utc = new Date(instant);
+  const includeYear = utc.getUTCFullYear() !== local.y;
+  return `Same moment: ${formatUtcClock(instant)} UTC, ${formatUtcDayMonth(instant, includeYear)} · ${utcOffsetPhrase(lonDeg)}.`;
+}
+
+export function formatSolarAndUtc(instant: number, lonDeg: number): string {
+  const local = localParts(instant, lonDeg);
+  const utc = new Date(instant);
+  const sameUtcDate =
+    utc.getUTCFullYear() === local.y && utc.getUTCMonth() === local.m && utc.getUTCDate() === local.day;
+  const includeYear = utc.getUTCFullYear() !== local.y;
+  return `${formatClock(instant, lonDeg)} · ${formatUtcClock(instant)} UTC${sameUtcDate ? "" : `, ${formatUtcDayMonth(instant, includeYear)}`}`;
+}
+
 export function formatDate(instant: number, lonDeg: number): string {
   const p = localParts(instant, lonDeg);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${p.day} ${months[p.m]} ${p.y}`;
+  return `${p.day} ${MONTHS[p.m]} ${p.y}`;
 }
 
 export function dateInputValue(instant: number, lonDeg: number): string {

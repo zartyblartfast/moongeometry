@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   compass,
   dateInputValue,
   deg1,
   formatClock,
   formatDate,
+  formatSolarAndUtc,
+  formatUtcMomentLine,
   fromLocal,
   localParts,
   moonEcliptic,
@@ -33,8 +35,6 @@ const EXPLAIN_TABS: { id: ExplainTab; label: string }[] = [
   { id: "science", label: "Scientific basis" },
   { id: "limits", label: "Limits" },
 ];
-
-const MEAN_SOLAR_NOTE = "Mean solar time at this longitude.";
 
 type UrlState = {
   lat?: number;
@@ -162,6 +162,10 @@ export function MoonApp() {
   const moonEcl = moonEcliptic(sky.d);
   const moonEclLonDeg = wrap360(moonEcl.lon * 180 / Math.PI);
   const moonEclLatDeg = moonEcl.lat * 180 / Math.PI;
+  const riseLabel = ev.rise ? formatSolarAndUtc(ev.rise, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : "—";
+  const setLabel = ev.set ? formatSolarAndUtc(ev.set, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : "—";
+  const riseValue = ev.rise ? <SolarUtcValue instant={ev.rise} lon={lon} /> : riseLabel;
+  const setValue = ev.set ? <SolarUtcValue instant={ev.set} lon={lon} /> : setLabel;
 
   const motion =
     playing === "spin"
@@ -301,8 +305,8 @@ export function MoonApp() {
             <Stat k="Now" v={altDeg < 0 ? `Below horizon` : `${deg1(altDeg)} · ${compass(azDeg)}`} />
             <Stat k="Declination" v={deg1(sky.decDeg)} />
             <Stat k="Top of path" v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)} />
-            <Stat k="Rise" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : ev.rise ? formatClock(ev.rise, lon) : "—"} note={MEAN_SOLAR_NOTE} />
-            <Stat k="Set" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : ev.set ? formatClock(ev.set, lon) : "—"} note={MEAN_SOLAR_NOTE} />
+            <Stat k="Rise" v={riseValue} />
+            <Stat k="Set" v={setValue} />
           </dl>
           <p className="text-sm text-fg">
             h max = 90° − |{lat.toFixed(1)}° − {deg1(sky.decDeg)}|
@@ -331,6 +335,7 @@ export function MoonApp() {
             className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
           />
           <span className="text-xs text-muted">At this longitude. Not a time zone or a watch.</span>
+          <span className="text-xs text-muted">{formatUtcMomentLine(instant, lon)}</span>
         </label>
         <Slider label={`Latitude ${lat.toFixed(1)}°`} min={-90} max={90} step={0.1} value={lat} onChange={setLat} />
         <Slider label={`Longitude ${lon.toFixed(1)}°`} min={-180} max={180} step={0.1} value={lon} onChange={setLon} />
@@ -369,8 +374,8 @@ export function MoonApp() {
         hourAngleDeg={hourAngleDeg}
         moonEclLonDeg={moonEclLonDeg}
         moonEclLatDeg={moonEclLatDeg}
-        rise={ev.rise ? formatClock(ev.rise, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : "—"}
-        set={ev.set ? formatClock(ev.set, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : "—"}
+        rise={riseLabel}
+        set={setLabel}
       />
     ) : null}
     </>
@@ -450,7 +455,7 @@ function ExplainPanel({
                   ["Moment", dateLabel],
                   ["Phase", `${phaseName}, ${Math.round(illumination * 100)}% lit`],
                   ["Moon now", altitudeDeg < 0 ? "Below horizon" : `${deg1(altitudeDeg)} · ${compass(azimuthDeg)}`],
-                  ["Rise / set", `${rise} / ${set} · ${MEAN_SOLAR_NOTE}`],
+                  ["Rise / set", `${rise} / ${set}`],
                 ]}
               />
               <p>
@@ -589,14 +594,21 @@ function sliderToSpin(slider: number): number {
   return SPIN_MIN_H * Math.pow(SPIN_MAX_H / SPIN_MIN_H, t);
 }
 
-function Stat({ k, v, note }: { k: string; v: string; note?: string }) {
+function SolarUtcValue({ instant, lon }: { instant: number; lon: number }) {
+  const [solar, utc] = formatSolarAndUtc(instant, lon).split(" · ");
+  return (
+    <>
+      {solar}
+      {utc ? <span className="ml-1 text-xs text-muted">· {utc}</span> : null}
+    </>
+  );
+}
+
+function Stat({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div>
       <dt className="text-muted">{k}</dt>
-      <dd className="text-fg">
-        {v}
-        {note ? <span className="ml-1 text-xs text-muted">{note}</span> : null}
-      </dd>
+      <dd className="text-fg">{v}</dd>
     </div>
   );
 }
