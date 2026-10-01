@@ -111,7 +111,7 @@ export function MoonApp() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-medium tracking-widest text-gold uppercase">Angles true · distances fiction</p>
-          <h1 className="font-display text-3xl text-fg">Moon Path</h1>
+          <h1 className="font-display text-3xl text-fg">Moon Geometry</h1>
         </div>
       </header>
 
