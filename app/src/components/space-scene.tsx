@@ -371,8 +371,8 @@ export function SpaceScene() {
       earthMaterial,
     );
     const figure = new THREE.Mesh(
-      new THREE.SphereGeometry(0.045, 16, 12),
-      new THREE.MeshStandardMaterial({ color: palette.cream }),
+      new THREE.CircleGeometry(0.045, 24),
+      new THREE.MeshBasicMaterial({ color: palette.cream, side: THREE.DoubleSide }),
     );
     const pole = new THREE.Mesh(
       new THREE.SphereGeometry(0.055, 16, 12),
@@ -483,7 +483,8 @@ export function SpaceScene() {
       dark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), away);
       sunLight.position.set(skyNow.sun.unit[0] * 8, skyNow.sun.unit[1] * 8, skyNow.sun.unit[2] * 8);
       const zen = new THREE.Vector3(...skyNow.zenith);
-      figure.position.copy(zen).multiplyScalar(EARTH + 0.055);
+      figure.position.copy(zen).multiplyScalar(EARTH + 0.025);
+      figure.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), zen.clone().normalize());
       plate.position.copy(zen).multiplyScalar(EARTH + 0.012);
       plate.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), zen.clone().normalize());
       setSeg(sight, [zen.x * EARTH, zen.y * EARTH, zen.z * EARTH], moonPos);

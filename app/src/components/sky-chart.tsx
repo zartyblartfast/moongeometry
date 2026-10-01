@@ -1,4 +1,4 @@
-import { skyPath } from "@/lib/astro";
+import { skyPath, snapshot } from "@/lib/astro";
 
 type Props = {
   instant: number;
@@ -37,14 +37,24 @@ function runs(samples: { altDeg: number; azDeg: number }[], cx: number, cy: numb
 }
 
 export function SkyChart({ instant, orbit, lat, lon, moonAlt, moonAz }: Props) {
-  const moon = skyPath(instant, lat, lon, "moon", orbit).samples;
+  const moonPath = skyPath(instant, lat, lon, "moon", orbit);
+  const moon = moonPath.samples;
   const sun = skyPath(instant, lat, lon, "sun", orbit).samples;
+  const skyNow = snapshot(instant, lat, lon, orbit);
   const cx = VB / 2;
   const cy = VB / 2 + 8;
   const radius = 118;
   const moonRuns = runs(moon, cx, cy, radius);
   const sunRuns = runs(sun, cx, cy, radius);
   const now = moonAlt > -0.4 ? project(Math.max(moonAlt, 0), moonAz, cx, cy, radius) : null;
+  const sunAlt = (skyNow.sunHz.alt * 180) / Math.PI;
+  const sunAz = ((skyNow.sunHz.az * 180) / Math.PI + 360) % 360;
+  const sunNow = sunAlt > -0.4 ? project(Math.max(sunAlt, 0), sunAz, cx, cy, radius) : null;
+  const topSample = moonPath.samples.reduce<{ altDeg: number; azDeg: number } | null>(
+    (best, sample) => (sample.altDeg > -0.4 && (!best || sample.altDeg > best.altDeg) ? sample : best),
+    null,
+  );
+  const top = topSample ? project(Math.max(topSample.altDeg, 0), topSample.azDeg, cx, cy, radius) : null;
   const rings = [30, 60];
   const cards = [
     { label: "N", x: cx, y: cy - radius - 14 },
@@ -56,18 +66,41 @@ export function SkyChart({ instant, orbit, lat, lon, moonAlt, moonAz }: Props) {
   return (
     <svg viewBox={`0 0 ${VB} ${VB + 16}`} className="h-full w-full" role="img" aria-label="Tonight’s Moon and Sun paths on the sky">
       <circle cx={cx} cy={cy} r={radius} fill="none" stroke="var(--color-line)" strokeWidth={1.25} />
-      {rings.map((alt) => (
-        <circle
-          key={alt}
-          cx={cx}
-          cy={cy}
-          r={((90 - alt) / 90) * radius}
-          fill="none"
-          stroke="var(--color-line)"
-          strokeWidth={1}
-          strokeDasharray="2 4"
-        />
-      ))}
+      {rings.map((alt) => {
+        const ringRadius = ((90 - alt) / 90) * radius;
+        return (
+          <g key={alt}>
+            <circle
+              cx={cx}
+              cy={cy}
+              r={ringRadius}
+              fill="none"
+              stroke="var(--color-line)"
+              strokeWidth={1}
+              strokeDasharray="2 4"
+            />
+            <text
+              x={cx + ringRadius + 4}
+              y={cy - 3}
+              fill="var(--color-muted)"
+              fontSize={10}
+              fontFamily="Outfit, sans-serif"
+            >
+              {alt}°
+            </text>
+          </g>
+        );
+      })}
+      <text
+        x={cx + radius * 0.63}
+        y={cy - radius * 0.72}
+        textAnchor="middle"
+        fill="var(--color-muted)"
+        fontSize={10}
+        fontFamily="Outfit, sans-serif"
+      >
+        horizon
+      </text>
       {cards.map((c) => (
         <text key={c.label} x={c.x} y={c.y} textAnchor="middle" fill="var(--color-muted)" fontSize={12} fontFamily="Outfit, sans-serif">
           {c.label}
@@ -82,6 +115,37 @@ export function SkyChart({ instant, orbit, lat, lon, moonAlt, moonAz }: Props) {
       {moonRuns.map((d, i) => (
         <polyline key={`m${i}`} points={d} fill="none" stroke="var(--color-silver)" strokeWidth={2.25} />
       ))}
+      {top && (
+        <g>
+          <circle
+            cx={top.x.toFixed(2)}
+            cy={top.y.toFixed(2)}
+            r="4"
+            fill="var(--color-bg)"
+            stroke="var(--color-silver)"
+            strokeWidth="1.75"
+          />
+          <text
+            x={(top.x + 8).toFixed(2)}
+            y={(top.y - 8).toFixed(2)}
+            fill="var(--color-muted)"
+            fontSize={10}
+            fontFamily="Outfit, sans-serif"
+          >
+            top of path
+          </text>
+        </g>
+      )}
+      {sunNow && (
+        <circle
+          cx={sunNow.x.toFixed(2)}
+          cy={sunNow.y.toFixed(2)}
+          r="5"
+          fill="var(--color-gold)"
+          stroke="var(--color-bg)"
+          strokeWidth="2"
+        />
+      )}
       {now && (
         <circle
           cx={now.x.toFixed(2)}
