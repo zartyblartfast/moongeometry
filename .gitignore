@@ -18,6 +18,9 @@ tools/
 .env.*
 !.env.example
 .grok/
+app/.grok/*
+!app/.grok/
+!app/.grok/app-env.json
 
 # Logs
 *.log

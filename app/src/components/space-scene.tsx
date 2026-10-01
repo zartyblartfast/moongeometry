@@ -16,7 +16,7 @@ type Api = { placeSnap: (snap: Snap) => void };
 function line(color: string) {
   const geom = new THREE.BufferGeometry();
   geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
-  const mat = new THREE.LineBasicMaterial({ color, linewidth: 2.4 });
+  const mat = new THREE.LineBasicMaterial({ color });
   return new THREE.Line(geom, mat);
 }
 

@@ -89,7 +89,7 @@ export function MoonApp() {
         : "Time is running quickly, so the Sun’s path and the Moon’s declination walk through the year."
       : playing === "slide"
         ? "One day at a time, same clock. Declination changes steadily, so the arc drifts rather than jumping."
-        : "Green is the equator Earth spins on. Gold is the ecliptic, and the arrows are sunlight in that plane. Silver is the Moon, five degrees off the gold.";
+        : "Green is the equator Earth spins on. Gold is the ecliptic, and the arrows are sunlight in that plane. Silver is the Moon, five degrees off the gold. The continents are schematic orientation cues, not a detailed map.";
 
   const onDate = (value: string) => {
     const [y, m, d] = value.split("-").map(Number);

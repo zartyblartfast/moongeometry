@@ -16,6 +16,16 @@ npm ci
 npm run dev
 ```
 
+The app is committed with `app/.grok/app-env.json` containing:
+
+```json
+{
+  "VITE_AUTH_ENABLED": "false"
+}
+```
+
+That flag disables the imported Grok auth gate for local/public development. If you regenerate the Grok scaffold or delete `.grok/`, restore that file or set `VITE_AUTH_ENABLED=false` in your environment.
+
 The local development server runs at:
 
 ```text
@@ -79,6 +89,8 @@ sketches/                    Earlier disposable UI layout sketches
 *.md                         Product, astronomy and UI design notes
 Moon_Path_Vision_Specification.docx  Imported vision/spec document
 ```
+
+The `app/` tree still contains some imported Grok scaffold code for auth, app-data and preview hosting. The MoonGeometry product code is concentrated in `app/src/components/moon-app.tsx`, `space-scene.tsx`, `sky-chart.tsx`, `moon-phase.tsx`, and `app/src/lib/astro.ts`.
 
 Ignored local/generated items include:
 

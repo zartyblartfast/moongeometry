@@ -22,3 +22,17 @@ v22.23.3
 The app source extracted from `moon-path-source.zip` is located in:
 
 `C:\hermes\moongeometry\app`
+
+Auth is disabled for this standalone prototype by the committed file:
+
+`app/.grok/app-env.json`
+
+with:
+
+```json
+{
+  "VITE_AUTH_ENABLED": "false"
+}
+```
+
+If running from another checkout path, install Node 22 by your preferred method or put a Node 22 binary first on `PATH`; the portable path above is only this workstation's local setup.
