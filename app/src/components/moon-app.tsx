@@ -18,6 +18,7 @@ import {
 } from "@/lib/astro";
 import { useMoon, type Play, type Snap } from "@/lib/store";
 import { MoonPhase } from "./moon-phase";
+import { PlaceSearch } from "./place-search";
 import { SkyChart } from "./sky-chart";
 import { SpaceScene } from "./space-scene";
 
@@ -193,7 +194,7 @@ export function MoonApp() {
 
   return (
     <>
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-2.5 px-4 py-2 lg:px-5 lg:py-3">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-2 px-4 py-2 lg:px-5 lg:py-2.5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-medium tracking-widest text-gold uppercase">Angles true · distances fiction</p>
@@ -203,7 +204,7 @@ export function MoonApp() {
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
         <section className="flex flex-col overflow-hidden rounded-card bg-surface">
-          <div className="relative h-80 min-h-72 lg:h-[27.5rem]">
+          <div className="relative h-80 min-h-72 lg:h-[25.5rem]">
             <SpaceScene />
             <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1 text-xs">
               <span className="mb-1 text-sm font-semibold text-fg">Orbital geometry — the Moon's tilted orbit around Earth</span>
@@ -297,7 +298,7 @@ export function MoonApp() {
               Explain
             </button>
           </div>
-          <div className="h-56 sm:h-60">
+          <div className="h-52 sm:h-56">
             <SkyChart instant={instant} orbit={orbit} lat={lat} lon={lon} moonAlt={altDeg} moonAz={azDeg} />
           </div>
           <p className="text-xs text-muted">Center is the zenith over the selected latitude/longitude. Gold path/dot = Sun; silver path/dot = Moon; small tick = top of Moon path.</p>
@@ -314,7 +315,15 @@ export function MoonApp() {
         </section>
       </div>
 
-      <section className="grid gap-3 rounded-card bg-surface p-3 sm:grid-cols-2 lg:grid-cols-6">
+      <section className="grid gap-2 rounded-card bg-surface p-2.5 sm:grid-cols-2 lg:grid-cols-9">
+        <PlaceSearch
+          lat={lat}
+          lon={lon}
+          onSelect={(place) => {
+            setLat(place.lat);
+            setLon(place.lon);
+          }}
+        />
         <label className="flex flex-col gap-1 text-sm text-muted">
           Date
           <input
@@ -325,7 +334,7 @@ export function MoonApp() {
             className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-muted">
+        <label className="flex flex-col gap-1 text-sm text-muted lg:col-span-2">
           Mean solar time
           <input
             type="time"
@@ -353,7 +362,7 @@ export function MoonApp() {
             className="h-9 w-full accent-gold"
           />
         </label>
-        <p className="text-xs text-muted sm:col-span-2 lg:col-span-6">
+        <p className="text-xs text-muted sm:col-span-2 lg:col-span-9">
           Mean circular orbit, not a full ephemeris. Drag the model to turn it. The Earth spin slider sets the pace, from one night up to a whole year. Slide the Moon holds the clock and lets declination drift.
         </p>
       </section>
