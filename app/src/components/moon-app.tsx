@@ -34,6 +34,62 @@ const EXPLAIN_TABS: { id: ExplainTab; label: string }[] = [
   { id: "limits", label: "Limits" },
 ];
 
+const MEAN_SOLAR_NOTE = "Mean solar time at this longitude.";
+
+type UrlState = {
+  lat?: number;
+  lon?: number;
+  date?: string;
+  time?: string;
+};
+
+function validDate(value: string | null): string | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) return undefined;
+  return value;
+}
+
+function validTime(value: string | null): string | undefined {
+  if (!value || !/^\d{2}:\d{2}$/.test(value)) return undefined;
+  const [hour, minute] = value.split(":").map(Number);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
+  return value;
+}
+
+function validNumber(value: string | null, min: number, max: number): number | undefined {
+  if (value == null || value.trim() === "") return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return undefined;
+  return parsed;
+}
+
+function readUrlState(): UrlState {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  return {
+    lat: validNumber(params.get("lat"), -90, 90),
+    lon: validNumber(params.get("lon"), -180, 180),
+    date: validDate(params.get("date")),
+    time: validTime(params.get("time")),
+  };
+}
+
+function replaceUrlState(lat: number, lon: number, instant: number) {
+  if (typeof window === "undefined") return;
+  const roundedLat = Math.round(lat * 10) / 10;
+  const roundedLon = Math.round(lon * 10) / 10;
+  const params = new URLSearchParams({
+    lat: roundedLat.toFixed(1),
+    lon: roundedLon.toFixed(1),
+    date: dateInputValue(instant, roundedLon),
+    time: timeInputValue(instant, roundedLon),
+  });
+  const next = `${window.location.pathname}?${params.toString()}`;
+  window.history.replaceState(null, "", next);
+}
+
 export function MoonApp() {
   const instant = useMoon((s) => s.instant);
   const orbit = useMoon((s) => s.orbit);
@@ -54,23 +110,49 @@ export function MoonApp() {
   const [orbitInfoOpen, setOrbitInfoOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const urlState = readUrlState();
+    let nextLat = lat;
+    let nextLon = lon;
+    let nextSpinHours = spinHours;
     try {
       const raw = localStorage.getItem("moonpath-place");
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { lat?: number; lon?: number; spinHours?: number };
-      if (typeof saved.lat === "number") setLat(saved.lat);
-      if (typeof saved.lon === "number") setLon(saved.lon);
-      if (typeof saved.spinHours === "number") setSpinHours(saved.spinHours);
+      if (raw) {
+        const saved = JSON.parse(raw) as { lat?: number; lon?: number; spinHours?: number };
+        if (typeof saved.lat === "number") nextLat = saved.lat;
+        if (typeof saved.lon === "number") nextLon = saved.lon;
+        if (typeof saved.spinHours === "number") nextSpinHours = saved.spinHours;
+      }
     } catch {
       /* ignore broken local storage */
     }
-  }, [setLat, setLon, setSpinHours]);
+
+    if (urlState.lat !== undefined) nextLat = urlState.lat;
+    if (urlState.lon !== undefined) nextLon = urlState.lon;
+
+    setLat(nextLat);
+    setLon(nextLon);
+    setSpinHours(nextSpinHours);
+
+    if (urlState.date && urlState.time) {
+      const [y, m, d] = urlState.date.split("-").map(Number);
+      const [h, min] = urlState.time.split(":").map(Number);
+      setInstant(fromLocal(y, m - 1, d, h, min, nextLon));
+    }
+
+    setMounted(true);
+    // Run once: URL query and local storage are initialisation sources only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem("moonpath-place", JSON.stringify({ lat, lon, spinHours }));
   }, [lat, lon, spinHours, mounted]);
+
+  useEffect(() => {
+    if (!mounted || playing !== "none") return;
+    replaceUrlState(lat, lon, instant);
+  }, [instant, lat, lon, mounted, playing]);
 
   const sky = snapshot(instant, lat, lon, orbit);
   const ev = skyPath(instant, lat, lon, "moon", orbit);
@@ -197,7 +279,7 @@ export function MoonApp() {
 
         <section className="flex flex-col gap-2.5 rounded-card bg-surface p-3">
           <div className="flex items-start gap-3">
-            <MoonPhase illumination={sky.phase.illumination} waxing={sky.phase.waxing} size={44} />
+            <MoonPhase illumination={sky.phase.illumination} waxing={sky.phase.waxing} latitude={lat} size={44} />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-muted">Local sky path — the resulting path in your local sky</p>
               <p className="font-display text-xl text-fg">{sky.phase.name}</p>
@@ -214,14 +296,13 @@ export function MoonApp() {
           <div className="h-56 sm:h-60">
             <SkyChart instant={instant} orbit={orbit} lat={lat} lon={lon} moonAlt={altDeg} moonAz={azDeg} />
           </div>
-          <p className="text-xs text-muted">Center is the zenith — straight up from the selected latitude and longitude. Dashed gold is the Sun’s daily path; the gold dot is the Sun now. Silver is the Moon’s path; the silver dot is the Moon now, and the small tick marks the top of that path.</p>
+          <p className="text-xs text-muted">Center is the zenith over the selected latitude/longitude. Gold path/dot = Sun; silver path/dot = Moon; small tick = top of Moon path.</p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <Stat k="Now" v={altDeg < 0 ? `Below horizon` : `${deg1(altDeg)} · ${compass(azDeg)}`} />
             <Stat k="Declination" v={deg1(sky.decDeg)} />
             <Stat k="Top of path" v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)} />
-            <Stat k="Formula" v={deg1(sky.hFormula)} />
-            <Stat k="Rise" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : ev.rise ? formatClock(ev.rise, lon) : "—"} />
-            <Stat k="Set" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : ev.set ? formatClock(ev.set, lon) : "—"} />
+            <Stat k="Rise" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : ev.rise ? formatClock(ev.rise, lon) : "—"} note={MEAN_SOLAR_NOTE} />
+            <Stat k="Set" v={ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : ev.set ? formatClock(ev.set, lon) : "—"} note={MEAN_SOLAR_NOTE} />
           </dl>
           <p className="text-sm text-fg">
             h max = 90° − |{lat.toFixed(1)}° − {deg1(sky.decDeg)}|
@@ -241,7 +322,7 @@ export function MoonApp() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-muted">
-          Clock at this longitude
+          Mean solar time
           <input
             type="time"
             value={timeInputValue(instant, lon)}
@@ -249,9 +330,10 @@ export function MoonApp() {
             suppressHydrationWarning
             className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
           />
+          <span className="text-xs text-muted">At this longitude. Not a time zone or a watch.</span>
         </label>
-        <Slider label={`Latitude ${lat.toFixed(1)}°`} min={-90} max={90} step={0.5} value={lat} onChange={setLat} />
-        <Slider label={`Longitude ${lon.toFixed(1)}°`} min={-180} max={180} step={0.5} value={lon} onChange={setLon} />
+        <Slider label={`Latitude ${lat.toFixed(1)}°`} min={-90} max={90} step={0.1} value={lat} onChange={setLat} />
+        <Slider label={`Longitude ${lon.toFixed(1)}°`} min={-180} max={180} step={0.1} value={lon} onChange={setLon} />
         <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2 lg:col-span-2">
           Earth spin · {formatSpin(spinHours)} · a year takes {yearTakes(spinHours)}
           <input
@@ -368,7 +450,7 @@ function ExplainPanel({
                   ["Moment", dateLabel],
                   ["Phase", `${phaseName}, ${Math.round(illumination * 100)}% lit`],
                   ["Moon now", altitudeDeg < 0 ? "Below horizon" : `${deg1(altitudeDeg)} · ${compass(azimuthDeg)}`],
-                  ["Rise / set", `${rise} / ${set}`],
+                  ["Rise / set", `${rise} / ${set} · ${MEAN_SOLAR_NOTE}`],
                 ]}
               />
               <p>
@@ -507,11 +589,14 @@ function sliderToSpin(slider: number): number {
   return SPIN_MIN_H * Math.pow(SPIN_MAX_H / SPIN_MIN_H, t);
 }
 
-function Stat({ k, v }: { k: string; v: string }) {
+function Stat({ k, v, note }: { k: string; v: string; note?: string }) {
   return (
     <div>
       <dt className="text-muted">{k}</dt>
-      <dd className="text-fg">{v}</dd>
+      <dd className="text-fg">
+        {v}
+        {note ? <span className="ml-1 text-xs text-muted">{note}</span> : null}
+      </dd>
     </div>
   );
 }
