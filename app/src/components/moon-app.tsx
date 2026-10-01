@@ -76,7 +76,6 @@ export function MoonApp() {
   const ev = skyPath(instant, lat, lon, "moon", orbit);
   const altDeg = (sky.moonHz.alt * 180) / Math.PI;
   const azDeg = ((sky.moonHz.az * 180) / Math.PI + 360) % 360;
-  const sunDec = (sky.sun.dec * 180) / Math.PI;
   const hourAngleDeg = sky.moonHz.ha * 180 / Math.PI;
   const moonEcl = moonEcliptic(sky.d);
   const moonEclLonDeg = wrap360(moonEcl.lon * 180 / Math.PI);
@@ -215,7 +214,7 @@ export function MoonApp() {
           <div className="h-56 sm:h-60">
             <SkyChart instant={instant} orbit={orbit} lat={lat} lon={lon} moonAlt={altDeg} moonAz={azDeg} />
           </div>
-          <p className="text-xs text-muted">North is up. Dashed gold is the Sun at {deg1(sunDec)}. That arc barely moves near a solstice, then climbs or falls through the seasons. Silver is the Moon.</p>
+          <p className="text-xs text-muted">Center is the zenith — straight up from the selected latitude and longitude. Dashed gold is the Sun’s daily path; the gold dot is the Sun now. Silver is the Moon’s path; the silver dot is the Moon now, and the small tick marks the top of that path.</p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <Stat k="Now" v={altDeg < 0 ? `Below horizon` : `${deg1(altDeg)} · ${compass(azDeg)}`} />
             <Stat k="Declination" v={deg1(sky.decDeg)} />

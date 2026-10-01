@@ -117,23 +117,24 @@ export function SkyChart({ instant, orbit, lat, lon, moonAlt, moonAz }: Props) {
       ))}
       {top && (
         <g>
-          <circle
-            cx={top.x.toFixed(2)}
-            cy={top.y.toFixed(2)}
-            r="4"
-            fill="var(--color-bg)"
+          <line
+            x1={(top.x - 5).toFixed(2)}
+            y1={top.y.toFixed(2)}
+            x2={(top.x + 5).toFixed(2)}
+            y2={top.y.toFixed(2)}
             stroke="var(--color-silver)"
-            strokeWidth="1.75"
+            strokeWidth="2"
+            strokeLinecap="round"
           />
-          <text
-            x={(top.x + 8).toFixed(2)}
-            y={(top.y - 8).toFixed(2)}
-            fill="var(--color-muted)"
-            fontSize={10}
-            fontFamily="Outfit, sans-serif"
-          >
-            top of path
-          </text>
+          <line
+            x1={top.x.toFixed(2)}
+            y1={(top.y - 5).toFixed(2)}
+            x2={top.x.toFixed(2)}
+            y2={(top.y + 5).toFixed(2)}
+            stroke="var(--color-bg)"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+          />
         </g>
       )}
       {sunNow && (
