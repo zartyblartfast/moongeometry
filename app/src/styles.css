@@ -1,0 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,520;9..144,640&family=Outfit:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0c1220;
+  --color-surface: #151c2c;
+  --color-surface-2: #1c2538;
+  --color-fg: #e7e1d6;
+  --color-muted: #9aa3b2;
+  --color-gold: #d4a24c;
+  --color-equator: #3cbf8c;
+  --color-silver: #d5dde6;
+  --color-line: #2a354c;
+  --font-sans: "Outfit", "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", Palatino, serif;
+  --radius-card: 1rem;
+  --radius-lg: 0.5rem;
+  --spacing-stage: 34rem;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  input[type="date"], input[type="time"] { color-scheme: dark; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}

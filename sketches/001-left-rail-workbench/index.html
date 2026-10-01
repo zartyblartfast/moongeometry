@@ -1,0 +1,72 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MoonGeometry Mockup — Left Rail Workbench</title><style>
+*{box-sizing:border-box} body{margin:0;font-family:Inter,"Segoe UI",system-ui,sans-serif;color:#24313b;background:#eef1f3;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums} button,input,select{font:inherit} .app-title{font-size:28px;letter-spacing:-.03em;margin:0;color:#f8fbff}.subtitle{margin:4px 0 0;color:#dce8f4;font-size:14px}.topband{background:linear-gradient(105deg,#9ebbd1,#6e93da 52%,#163243);padding:18px 28px;border-bottom:1px solid #9eb1bf}.section{border-top:1px solid #cfd8df}.section h3{margin:0}.section-toggle{width:100%;height:34px;border:0;background:#6f7d86;color:white;text-align:left;padding:0 12px;display:flex;align-items:center;justify-content:space-between;font-weight:700;letter-spacing:.01em;cursor:pointer}.section-toggle .chev{transition:transform .18s}.section.closed .chev{transform:rotate(-90deg)}.section-body{padding:12px;background:#f8fafb}.section.closed .section-body{display:none}.field{display:grid;gap:4px;margin-bottom:10px}.field label{font-size:12px;color:#53636f;font-weight:700}.field input,.field select{height:32px;border:1px solid #b9c4cc;border-radius:4px;background:white;padding:0 8px;color:#24313b}.field.two{grid-template-columns:1fr 1fr;gap:8px}.btn{height:34px;border:1px solid #8aa7ba;border-radius:4px;padding:0 12px;background:#eaf2f8;font-weight:700;color:#234255;cursor:pointer}.btn.primary{background:#315f7a;color:white;border-color:#23475c}.metric-grid{display:grid;grid-template-columns:1fr auto;gap:5px 16px;font-size:13px}.metric-grid dt{color:#63727d}.metric-grid dd{margin:0;font-weight:700;color:#24313b}.panel{background:#fff;border:1px solid #cfd8df;border-radius:6px;overflow:hidden}.panel-head{height:36px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #d7e0e6;background:#f7f9fa;font-weight:800;color:#27333d}.sky-svg,.geo-svg{width:100%;height:100%;display:block}.timeline{height:68px;position:relative;background:#fff;border:1px solid #cfd8df;border-radius:6px;margin-top:12px;overflow:hidden}.timeline-row.sky{position:absolute;left:16px;right:16px;top:17px;height:18px;border-radius:12px;background:linear-gradient(90deg,#263645 0 7%,#9bb7d4 7% 18%,#f3ce78 18% 74%,#9bb7d4 74% 86%,#263645 86%)}.moon-window{position:absolute;top:39px;height:9px;background:#91a2df;border-radius:10px}.now{position:absolute;top:8px;bottom:8px;width:2px;background:#24313b}.event{position:absolute;bottom:7px;transform:translateX(-50%);font-size:11px;color:#596975}.explain{font-size:14px;line-height:1.45;color:#40505b}.explain strong{color:#24313b}.tabs{display:flex;gap:4px}.tab{height:28px;border:1px solid #c2cbd2;background:#fff;border-radius:4px;padding:0 10px;font-size:12px;font-weight:700;color:#4b5a65}.tab.active{background:#263b4a;color:white;border-color:#263b4a}.data-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.data-cell{padding:8px 10px;border-left:3px solid #9fb1bf;background:#f9fbfc}.data-cell .label{font-size:11px;color:#60707b;text-transform:uppercase;font-weight:800}.data-cell .value{font-size:18px;font-weight:800;color:#26333d}.note{font-size:12px;color:#62727e;margin-top:8px}
+.shell{min-height:100vh;display:grid;grid-template-rows:auto 1fr}.workspace{display:grid;grid-template-columns:318px minmax(0,1fr);gap:14px;padding:14px 18px 18px;max-width:1560px;width:100%;margin:0 auto}.rail{background:#fff;border:1px solid #c7d1d8;border-radius:6px;overflow:hidden;align-self:start}.rail-title{height:38px;background:#2c4859;color:white;display:flex;align-items:center;padding:0 12px;font-weight:800}.main{min-width:0}.viz-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,.95fr);gap:12px;height:502px}.bottom{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin-top:12px}@media(max-width:980px){.workspace{grid-template-columns:1fr}.viz-grid,.bottom{grid-template-columns:1fr;height:auto}.panel{min-height:320px}}
+</style></head><body><div class="shell"><header class="topband"><h1 class="app-title">Moon Geometry</h1><p class="subtitle">See where the Moon is — and understand why.</p></header><main class="workspace"><aside class="rail"><div class="rail-title">Observation Workbench</div>
+<section class="section"><button class="section-toggle">Observer <span class="chev">▾</span></button><div class="section-body"><div class="field two"><div><label>Latitude</label><input value="54.15° N"></div><div><label>Longitude</label><input value="4.48° W"></div></div><div class="field"><label>Preset</label><select><option>Douglas, Isle of Man</option></select></div><button class="btn">Use current location</button></div></section>
+<section class="section"><button class="section-toggle">Time <span class="chev">▾</span></button><div class="section-body"><div class="field"><label>Date</label><input value="2026-09-29"></div><div class="field"><label>Local time <span class="mock-time">17:45</span></label><input data-time type="range" min="00:00" max="23:59" value="17:45"></div><div style="display:flex;gap:8px"><button class="btn primary">Now</button><button class="btn">▶ Animate</button></div></div></section>
+<section class="section"><button class="section-toggle">Visualization <span class="chev">▾</span></button><div class="section-body"><div class="tabs"><button class="tab active">Horizon</button><button class="tab">Orbit</button><button class="tab">Phase</button></div><p class="note">Overlays: ecliptic, celestial equator, Sun path, Moon path.</p></div></section>
+<section class="section"><button class="section-toggle">Find the Moon <span class="chev">▾</span></button><div class="section-body"><dl class="metric-grid"><dt>Daytime overlap</dt><dd>13:18–18:04</dd><dt>Best direction</dt><dd>SE</dd><dt>Best altitude</dt><dd>31°</dd></dl></div></section>
+<section class="section closed"><button class="section-toggle">Advanced data <span class="chev">▾</span></button><div class="section-body"><dl class="metric-grid"><dt>Moon RA</dt><dd>18h 42m</dd><dt>Moon Dec</dt><dd>-12.6°</dd><dt>Elongation</dt><dd>117.2°</dd><dt>Lunar age</dt><dd>9.4 d</dd></dl></div></section>
+</aside><section class="main"><div class="viz-grid"><div class="panel"><div class="panel-head"><span>Observer Sky</span><span>Douglas · <span class="mock-time">17:45</span></span></div>
+<svg class="sky-svg" viewBox="0 0 900 460" role="img" aria-label="Observer sky mockup">
+  <defs>
+    <linearGradient id="skyGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#dce9f4"/>
+      <stop offset="0.55" stop-color="#eef6f7"/>
+      <stop offset="1" stop-color="#f5efe6"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="460" fill="url(#skyGrad)"/>
+  <g stroke="#9eb2bd" stroke-width="1" opacity=".55">
+    <path d="M70 360 C220 300 375 285 520 315 S760 375 840 320" fill="none"/>
+    <line x1="64" y1="360" x2="840" y2="360"/>
+    <line x1="80" y1="280" x2="820" y2="280" stroke-dasharray="4 6"/>
+    <line x1="80" y1="200" x2="820" y2="200" stroke-dasharray="4 6"/>
+    <line x1="80" y1="120" x2="820" y2="120" stroke-dasharray="4 6"/>
+  </g>
+  <g font-size="12" fill="#52616b" font-weight="600">
+    <text x="62" y="383">NE</text><text x="295" y="383">E</text><text x="560" y="383">SE</text><text x="810" y="383">S</text>
+    <text x="38" y="204">45°</text><text x="38" y="124">70°</text><text x="38" y="363">0°</text>
+  </g>
+  <path d="M120 318 C270 266 430 234 635 145" stroke="#d89b28" stroke-width="2" fill="none" opacity=".7" stroke-dasharray="7 7"/>
+  <path d="M95 246 C220 210 380 184 650 198" stroke="#6f7fc8" stroke-width="2" fill="none" opacity=".75"/>
+  <g transform="translate(650 198)">
+    <circle r="23" fill="#e8ecf0" stroke="#64707a" stroke-width="1.4"/>
+    <path d="M0 -23 A23 23 0 1 1 0 23 C11 16 16 7 16 0 C16 -7 11 -16 0 -23" fill="#9aa4ad" opacity=".45"/>
+    <text y="42" text-anchor="middle" fill="#25313a" font-size="13" font-weight="700">Moon 31.4°</text>
+  </g>
+  <g transform="translate(635 145)">
+    <circle r="17" fill="#f2b84b" stroke="#bf7b16" stroke-width="1.2"/>
+    <text y="39" text-anchor="middle" fill="#5c4618" font-size="13" font-weight="700">Sun 7.2°</text>
+  </g>
+  <rect x="70" y="34" width="260" height="54" rx="6" fill="rgba(255,255,255,.78)" stroke="#c7d2d8"/>
+  <text x="88" y="57" fill="#27333d" font-size="14" font-weight="700">Visible now: yes</text>
+  <text x="88" y="76" fill="#52616b" font-size="13">Look southeast, about one third up from horizon.</text>
+</svg></div><div class="panel"><div class="panel-head"><span>Local Horizon Geometry</span><span class="tabs"><button class="tab active">Horizon</button><button class="tab">Phase</button></span></div>
+<svg class="geo-svg" viewBox="0 0 620 430" role="img" aria-label="Local horizon geometry mockup">
+  <rect width="620" height="430" fill="#fbfcfd"/>
+  <circle cx="230" cy="250" r="118" fill="#dbe9f1" stroke="#7e96a5" stroke-width="1.5"/>
+  <path d="M112 250 A118 118 0 0 0 348 250" fill="#8bb3d7" opacity=".35"/>
+  <circle cx="288" cy="147" r="5" fill="#21313d"/>
+  <line x1="230" y1="250" x2="288" y2="147" stroke="#263540" stroke-width="1.8"/>
+  <line x1="190" y1="124" x2="386" y2="235" stroke="#667783" stroke-width="1.5"/>
+  <line x1="288" y1="147" x2="508" y2="104" stroke="#6f7fc8" stroke-width="2.5"/>
+  <line x1="288" y1="147" x2="478" y2="196" stroke="#d89b28" stroke-width="2.5"/>
+  <path d="M329 155 A45 45 0 0 1 357 176" stroke="#6f7fc8" fill="none" stroke-width="1.5"/>
+  <text x="360" y="178" fill="#4a5797" font-size="13" font-weight="700">Moon altitude</text>
+  <text x="393" y="93" fill="#4a5797" font-size="13">line of sight to Moon</text>
+  <text x="397" y="213" fill="#9b6d1e" font-size="13">line of sight to Sun</text>
+  <text x="176" y="394" fill="#52616b" font-size="13">Local horizon is tangent to Earth at the observer.</text>
+  <text x="33" y="44" fill="#27333d" font-size="15" font-weight="700">Why it appears there</text>
+  <text x="33" y="68" fill="#52616b" font-size="13">Altitude is measured from your local horizon, not from the Moon's orbital plane.</text>
+</svg></div></div><div class="timeline" aria-label="Daily timeline">
+  <div class="timeline-row sky"><span style="left:6%"></span><span style="left:73%"></span></div>
+  <div class="moon-window" style="left:34%;width:44%"></div>
+  <div class="now" style="left:62%"></div>
+  <div class="event" style="left:7%">sunrise</div><div class="event" style="left:35%">moonrise</div><div class="event" style="left:62%">now</div><div class="event" style="left:74%">sunset</div>
+</div><div class="bottom"><div class="panel"><div class="panel-head">What this means</div><div class="section-body explain"><strong>The Moon is above your southeast horizon.</strong> At this time, your local horizon cuts below the Moon's line of sight, so the Moon is visible. The Sun is also above the horizon, which is why this is a daylight Moon opportunity.</div></div><div class="panel"><div class="panel-head">Observation data</div><div class="section-body data-strip"><div class="data-cell"><div class="label">Moon alt</div><div class="value">31.4°</div></div><div class="data-cell"><div class="label">Moon az</div><div class="value">128.7°</div></div><div class="data-cell"><div class="label">Sun alt</div><div class="value">7.2°</div></div><div class="data-cell"><div class="label">Phase</div><div class="value">73%</div></div></div></div></div></section></main></div>
+<script>
+document.querySelectorAll('.section-toggle').forEach(btn=>{btn.addEventListener('click',()=>btn.closest('.section').classList.toggle('closed'))});
+document.querySelectorAll('[data-time]').forEach(el=>{el.addEventListener('input',e=>{document.querySelectorAll('.mock-time').forEach(t=>t.textContent=e.target.value)})});
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{t.parentElement.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active')}));
+</script></body></html>
