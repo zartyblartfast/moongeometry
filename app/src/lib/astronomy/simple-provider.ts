@@ -1,4 +1,4 @@
-import { snapshot, wrap360 } from "../astro.ts";
+import { moonEcliptic, snapshot, wrap360 } from "../astro.ts";
 import type { AstronomyProvider, BodyState, HorizontalPosition } from "./provider.ts";
 
 const RAD_TO_DEG = 180 / Math.PI;
@@ -14,6 +14,7 @@ function horizontalFromRadians(alt: number, az: number, hourAngle: number): Hori
 export const simpleAstronomyProvider: AstronomyProvider = {
   snapshot(input) {
     const direct = snapshot(input.instant, input.latDeg, input.lonDeg, input.orbitInstant);
+    const moonEclipticRadians = moonEcliptic(direct.d);
 
     const sun: BodyState = {
       equatorial: {
@@ -34,6 +35,10 @@ export const simpleAstronomyProvider: AstronomyProvider = {
         },
         horizontal: horizontalFromRadians(direct.moonHz.alt, direct.moonHz.az, direct.moonHz.ha),
         geocentricUnit: direct.moon.unit,
+        ecliptic: {
+          longitudeDeg: wrap360(moonEclipticRadians.lon * RAD_TO_DEG),
+          latitudeDeg: moonEclipticRadians.lat * RAD_TO_DEG,
+        },
         illumination: direct.phase.illumination,
         elongationDeg: direct.phase.elongationDeg,
         waxing: direct.phase.waxing,

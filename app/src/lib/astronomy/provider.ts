@@ -25,6 +25,13 @@ export type HorizontalPosition = {
   hourAngle: number;
 };
 
+export type EclipticPosition = {
+  /** Geocentric true-ecliptic-of-date longitude, degrees in [0, 360). */
+  longitudeDeg: number;
+  /** Geocentric true-ecliptic-of-date latitude, degrees north-positive. */
+  latitudeDeg: number;
+};
+
 export type BodyState = {
   /** Geocentric equatorial position for schematic orrery geometry. */
   equatorial: EquatorialPosition;
@@ -35,6 +42,8 @@ export type BodyState = {
 };
 
 export type MoonState = BodyState & {
+  /** Geocentric Moon coordinates at orbitInstant. */
+  ecliptic: EclipticPosition;
   /** Optional physical distance; the current orrery remains schematic. */
   distanceKm?: number;
   /** Fraction illuminated, from 0 to 1. */

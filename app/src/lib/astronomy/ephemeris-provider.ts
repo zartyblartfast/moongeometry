@@ -1,5 +1,6 @@
 import {
   Body,
+  EclipticGeoMoon,
   EquatorFromVector,
   GeoVector,
   HorizonFromVector,
@@ -119,8 +120,13 @@ export const ephemerisAstronomyProvider: AstronomyProvider = {
     const moonPhase = MoonPhase(orbitDate);
     const waxing = moonPhase > 0 && moonPhase < 180;
     const moonVector = GeoVector(Body.Moon, orbitDate, true);
+    const moonEcliptic = EclipticGeoMoon(orbitDate);
     const moon: MoonState = {
       ...moonBase,
+      ecliptic: {
+        longitudeDeg: wrap360(moonEcliptic.lon),
+        latitudeDeg: moonEcliptic.lat,
+      },
       distanceKm: vectorLength(moonVector) * KM_PER_AU,
       illumination,
       elongationDeg: Math.min(moonPhase, 360 - moonPhase),

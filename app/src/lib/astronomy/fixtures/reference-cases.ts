@@ -7,6 +7,8 @@ export type ReferenceCase = {
     d: number;
     sun: ReferenceBody;
     moon: ReferenceBody & {
+      eclipticLongitudeDeg: number;
+      eclipticLatitudeDeg: number;
       distanceKm: number;
       illumination: number;
       elongationDeg: number;
@@ -69,6 +71,8 @@ export const referenceCases: readonly ReferenceCase[] = [
         azimuthDeg: 50.818674375213504,
         hourAngleRad: -2.0913153292056865,
         geocentricUnit: [0.17997105061510535, 0.46705325470745707, 0.8657203233190649],
+        eclipticLongitudeDeg: 79.9705891008692,
+        eclipticLatitudeDeg: 4.830591916901554,
         distanceKm: 369344.288620022,
         illumination: 0.6631391899478158,
         elongationDeg: 108.97944395254319,
@@ -101,6 +105,8 @@ export const referenceCases: readonly ReferenceCase[] = [
         azimuthDeg: 79.44853688898854,
         hourAngleRad: -1.702371093100048,
         geocentricUnit: [0.9467038622432922, 0.17987555595526444, 0.26720138768991863],
+        eclipticLongitudeDeg: 18.86454409235749,
+        eclipticLatitudeDeg: 3.369214490028217,
         distanceKm: 368989.3144237981,
         illumination: 0.028116815731430045,
         elongationDeg: 18.973113922835807,
@@ -133,6 +139,8 @@ export const referenceCases: readonly ReferenceCase[] = [
         azimuthDeg: 0.6293499994882268,
         hourAngleRad: -0.005724100732189985,
         geocentricUnit: [0.9791535180027142, -0.054398308274208586, -0.1957018452641996],
+        eclipticLongitudeDeg: 348.76134358746134,
+        eclipticLatitudeDeg: 1.6004482375747175,
         distanceKm: 388666.07000342564,
         illumination: 0.7121532516894795,
         elongationDeg: 114.98460410208048,

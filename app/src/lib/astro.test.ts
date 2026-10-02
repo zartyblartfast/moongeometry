@@ -23,6 +23,7 @@ import {
   horizon,
   hoopPoints,
   meridianAltitudeDeg,
+  moonEcliptic,
   moonEquatorial,
   nearestFullEvening,
   phaseFromUnits,
@@ -87,6 +88,7 @@ test("simple astronomy provider matches direct snapshot observed values", () => 
     lonDeg: -0.13,
   };
   const direct = snapshot(input.instant, input.latDeg, input.lonDeg, input.orbitInstant);
+  const directEcliptic = moonEcliptic(direct.d);
   const provided = simpleAstronomyProvider.snapshot(input);
 
   assertClose(provided.d, direct.d);
@@ -99,6 +101,8 @@ test("simple astronomy provider matches direct snapshot observed values", () => 
   assertClose(provided.moon.equatorial.ra, direct.moon.ra);
   assertClose(provided.moon.equatorial.dec, direct.moon.dec);
   assertVecClose(provided.moon.geocentricUnit, direct.moon.unit);
+  assertClose(provided.moon.ecliptic.longitudeDeg, ((directEcliptic.lon / DEG) % 360 + 360) % 360);
+  assertClose(provided.moon.ecliptic.latitudeDeg, directEcliptic.lat / DEG);
   assertClose(provided.moon.horizontal.altitudeDeg, direct.moonHz.alt / DEG);
   assertClose(provided.moon.horizontal.azimuthDeg, ((direct.moonHz.az / DEG) % 360 + 360) % 360);
   assertClose(provided.moon.horizontal.hourAngle, direct.moonHz.ha);
@@ -140,7 +144,12 @@ test("ephemeris provider keeps schematic fields geocentric and applies observer 
   assertClose(shifted.moon.equatorial.ra, actual.moon.equatorial.ra, 1e-12);
   assertClose(shifted.moon.equatorial.dec, actual.moon.equatorial.dec, 1e-12);
   assertVecClose(shifted.moon.geocentricUnit, actual.moon.geocentricUnit, 1e-12);
+  assertClose(shifted.moon.ecliptic.longitudeDeg, actual.moon.ecliptic.longitudeDeg, 1e-12);
+  assertClose(shifted.moon.ecliptic.latitudeDeg, actual.moon.ecliptic.latitudeDeg, 1e-12);
   assert.ok(Math.abs(shifted.moon.horizontal.hourAngle - actual.moon.horizontal.hourAngle) > 0.45);
+
+  const shiftedOrbit = ephemerisAstronomyProvider.snapshot({ ...input, orbitInstant: input.orbitInstant + 24 * 60 * 60_000 });
+  assert.ok(angleDeltaDeg(shiftedOrbit.moon.ecliptic.longitudeDeg, actual.moon.ecliptic.longitudeDeg) > 10);
 });
 
 test("ephemeris astronomy provider matches saved Astronomy Engine fixtures", () => {
@@ -162,6 +171,8 @@ test("ephemeris astronomy provider matches saved Astronomy Engine fixtures", () 
     assertAngleClose(actual.moon.horizontal.azimuthDeg, expected.moon.azimuthDeg, 1e-7);
     assertClose(actual.moon.horizontal.hourAngle, expected.moon.hourAngleRad, 1e-10);
     assertVecClose(actual.moon.geocentricUnit, expected.moon.geocentricUnit, 1e-10);
+    assertAngleClose(actual.moon.ecliptic.longitudeDeg, expected.moon.eclipticLongitudeDeg, 1e-10);
+    assertClose(actual.moon.ecliptic.latitudeDeg, expected.moon.eclipticLatitudeDeg, 1e-10);
     assertClose(actual.moon.distanceKm ?? 0, expected.moon.distanceKm, 1e-3);
     assertClose(actual.moon.illumination, expected.moon.illumination, 1e-10);
     assertClose(actual.moon.elongationDeg, expected.moon.elongationDeg, 1e-8);

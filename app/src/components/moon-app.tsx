@@ -9,10 +9,8 @@ import {
   formatUtcMomentLine,
   fromLocal,
   localParts,
-  moonEcliptic,
   nearestFullEvening,
   timeInputValue,
-  wrap360,
 } from "@/lib/astro";
 import { observedSkyPath, observedSnapshot } from "@/lib/astronomy/observed";
 import { useMoon, type Play, type Snap } from "@/lib/store";
@@ -159,9 +157,8 @@ export function MoonApp() {
   const altDeg = sky.moon.horizontal.altitudeDeg;
   const azDeg = sky.moon.horizontal.azimuthDeg;
   const hourAngleDeg = sky.moon.horizontal.hourAngle * 180 / Math.PI;
-  const moonEcl = moonEcliptic(sky.d);
-  const moonEclLonDeg = wrap360(moonEcl.lon * 180 / Math.PI);
-  const moonEclLatDeg = moonEcl.lat * 180 / Math.PI;
+  const moonEclLonDeg = sky.moon.ecliptic.longitudeDeg;
+  const moonEclLatDeg = sky.moon.ecliptic.latitudeDeg;
   const riseLabel = ev.rise ? formatSolarAndUtc(ev.rise, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not rise" : "—";
   const setLabel = ev.set ? formatSolarAndUtc(ev.set, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : "—";
   const riseValue = ev.rise ? <SolarUtcValue instant={ev.rise} lon={lon} /> : riseLabel;
