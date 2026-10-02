@@ -11,11 +11,10 @@ import {
   localParts,
   moonEcliptic,
   nearestFullEvening,
-  skyPath,
-  snapshot,
   timeInputValue,
   wrap360,
 } from "@/lib/astro";
+import { observedSkyPath, observedSnapshot } from "@/lib/astronomy/observed";
 import { useMoon, type Play, type Snap } from "@/lib/store";
 import { MoonPhase } from "./moon-phase";
 import { PlaceSearch } from "./place-search";
@@ -155,11 +154,11 @@ export function MoonApp() {
     replaceUrlState(lat, lon, instant);
   }, [instant, lat, lon, mounted, playing]);
 
-  const sky = snapshot(instant, lat, lon, orbit);
-  const ev = skyPath(instant, lat, lon, "moon", orbit);
-  const altDeg = (sky.moonHz.alt * 180) / Math.PI;
-  const azDeg = ((sky.moonHz.az * 180) / Math.PI + 360) % 360;
-  const hourAngleDeg = sky.moonHz.ha * 180 / Math.PI;
+  const sky = observedSnapshot(instant, lat, lon, orbit);
+  const ev = observedSkyPath(instant, lat, lon, "moon", orbit);
+  const altDeg = sky.moon.horizontal.altitudeDeg;
+  const azDeg = sky.moon.horizontal.azimuthDeg;
+  const hourAngleDeg = sky.moon.horizontal.hourAngle * 180 / Math.PI;
   const moonEcl = moonEcliptic(sky.d);
   const moonEclLonDeg = wrap360(moonEcl.lon * 180 / Math.PI);
   const moonEclLatDeg = moonEcl.lat * 180 / Math.PI;
@@ -286,11 +285,11 @@ export function MoonApp() {
 
         <section className="flex flex-col gap-2.5 rounded-card bg-surface p-3">
           <div className="flex items-start gap-3">
-            <MoonPhase illumination={sky.phase.illumination} waxing={sky.phase.waxing} latitude={lat} size={44} />
+            <MoonPhase illumination={sky.moon.illumination} waxing={sky.moon.waxing} latitude={lat} size={44} />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-muted">Local sky path — the resulting path in your local sky</p>
-              <p className="font-display text-xl text-fg">{sky.phase.name}</p>
-              <p className="text-sm text-muted">{Math.round(sky.phase.illumination * 100)}% lit · {formatDate(instant, lon)} {formatClock(instant, lon)}</p>
+              <p className="font-display text-xl text-fg">{sky.moon.phaseName}</p>
+              <p className="text-sm text-muted">{Math.round(sky.moon.illumination * 100)}% lit · {formatDate(instant, lon)} {formatClock(instant, lon)}</p>
             </div>
             <button
               type="button"
@@ -378,8 +377,8 @@ export function MoonApp() {
         lat={lat}
         lon={lon}
         dateLabel={`${formatDate(instant, lon)} ${formatClock(instant, lon)}`}
-        phaseName={sky.phase.name}
-        illumination={sky.phase.illumination}
+        phaseName={sky.moon.phaseName}
+        illumination={sky.moon.illumination}
         altitudeDeg={altDeg}
         azimuthDeg={azDeg}
         declinationDeg={sky.decDeg}

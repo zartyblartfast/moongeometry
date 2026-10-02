@@ -34,6 +34,8 @@ import {
 } from "./astro.ts";
 import { ephemerisAstronomyProvider } from "./astronomy/ephemeris-provider.ts";
 import { referenceCases, simpleVsEphemerisCases } from "./astronomy/fixtures/reference-cases.ts";
+import { observedSkyPath, observedSnapshot } from "./astronomy/observed.ts";
+import type { AstronomyProvider } from "./astronomy/provider.ts";
 import { simpleAstronomyProvider } from "./astronomy/simple-provider.ts";
 
 const DEG = Math.PI / 180;
@@ -246,6 +248,86 @@ test("opposite the Sun is full; a quarter east of it is waxing", () => {
   const quarter = phaseFromUnits(sun, equatorialUnit(Math.PI / 2, 0), 0, Math.PI / 2);
   assert.ok(Math.abs(quarter.illumination - 0.5) < 0.02);
   assert.equal(quarter.waxing, true);
+});
+
+test("observed ephemeris sky paths keep the frozen-orbit Moon and Sun dots on their arcs", () => {
+  const lat = 51.5;
+  const lon = -0.13;
+  const instant = Date.UTC(2026, 9, 1, 20, 36, 0);
+  const orbit = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const snap = observedSnapshot(instant, lat, lon, orbit);
+  const moonPath = observedSkyPath(instant, lat, lon, "moon", orbit);
+  const sunPath = observedSkyPath(instant, lat, lon, "sun", orbit);
+
+  assert.ok(moonPath.samples.length > 100);
+  assert.ok(sunPath.samples.length > 100);
+  const direct = ephemerisAstronomyProvider.snapshot({ instant, orbitInstant: orbit, latDeg: lat, lonDeg: lon });
+  assertClose(snap.moon.horizontal.altitudeDeg, direct.moon.horizontal.altitudeDeg, 1e-12);
+  assertAngleClose(snap.moon.horizontal.azimuthDeg, direct.moon.horizontal.azimuthDeg, 1e-12);
+  assertClose(snap.decDeg, direct.decDeg, 1e-12);
+  assertClose(snap.moon.illumination, direct.moon.illumination, 1e-12);
+  assert.equal(snap.moon.phaseName, direct.moon.phaseName);
+
+  for (const [name, path, horizontal] of [
+    ["Moon", moonPath, snap.moon.horizontal],
+    ["Sun", sunPath, snap.sun.horizontal],
+  ] as const) {
+    let nearest = 999;
+    for (const sample of path.samples) {
+      const daz = angleDeltaDeg(sample.azDeg, horizontal.azimuthDeg);
+      nearest = Math.min(nearest, Math.hypot(daz, sample.altDeg - horizontal.altitudeDeg));
+    }
+    assert.ok(nearest < 1e-9, `${name} is ${nearest}° off its ephemeris path`);
+  }
+});
+
+test("observed rise and set are interpolated geometric zero-altitude crossings", () => {
+  const orbitInstant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const instant = 3 * 60 * 60_000;
+  const seenOrbitInstants = new Set<number>();
+  const provider: AstronomyProvider = {
+    snapshot(input) {
+      seenOrbitInstants.add(input.orbitInstant);
+      const base = simpleAstronomyProvider.snapshot(input);
+      const phase = (input.instant / (12 * 60 * 60_000)) * Math.PI * 2;
+      return {
+        ...base,
+        moon: {
+          ...base.moon,
+          horizontal: {
+            ...base.moon.horizontal,
+            altitudeDeg: 30 * Math.sin(phase),
+            azimuthDeg: ((input.instant / 60_000) % 360 + 360) % 360,
+          },
+        },
+      };
+    },
+  };
+
+  const path = observedSkyPath(instant, 0, 0, "moon", orbitInstant, provider);
+  assertClose(path.rise ?? Number.NaN, 0, 1e-6);
+  assertClose(path.set ?? Number.NaN, 6 * 60 * 60_000, 1e-6);
+  assert.deepEqual([...seenOrbitInstants], [orbitInstant]);
+});
+
+test("observed ephemeris sky path uses orbitInstant for smooth date-step drift without moving the clock", () => {
+  const lat = 51.5;
+  const lon = -0.13;
+  const instant = Date.UTC(2026, 9, 1, 20, 36, 0);
+  const start = observedSkyPath(instant, lat, lon, "moon", instant).transitAlt ?? 0;
+  const twentyMinutes = observedSkyPath(instant, lat, lon, "moon", instant + 20 * 60_000).transitAlt ?? 0;
+  const nextDaySameClock = observedSkyPath(instant, lat, lon, "moon", instant + 86_400_000).transitAlt ?? 0;
+
+  assert.ok(Math.abs(twentyMinutes - start) < 0.4, `20 min orbit shift moved the arc by ${twentyMinutes - start}`);
+  assert.ok(Math.abs(nextDaySameClock - start) > Math.abs(twentyMinutes - start), "date step should move the arc more than 20 minutes");
+
+  const now = observedSnapshot(instant, lat, lon, instant + 86_400_000).moon.horizontal;
+  const path = observedSkyPath(instant, lat, lon, "moon", instant + 86_400_000);
+  let nearest = 999;
+  for (const sample of path.samples) {
+    nearest = Math.min(nearest, Math.hypot(angleDeltaDeg(sample.azDeg, now.azimuthDeg), sample.altDeg - now.altitudeDeg));
+  }
+  assert.ok(nearest < 1e-9, `date-stepped dot is ${nearest}° off its arc`);
 });
 
 test("the sky path drifts with declination instead of stepping once a day", () => {

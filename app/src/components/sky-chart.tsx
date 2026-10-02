@@ -1,4 +1,4 @@
-import { skyPath, snapshot } from "@/lib/astro";
+import { observedSkyPath, observedSnapshot } from "@/lib/astronomy/observed";
 
 type Props = {
   instant: number;
@@ -37,18 +37,18 @@ function runs(samples: { altDeg: number; azDeg: number }[], cx: number, cy: numb
 }
 
 export function SkyChart({ instant, orbit, lat, lon, moonAlt, moonAz }: Props) {
-  const moonPath = skyPath(instant, lat, lon, "moon", orbit);
+  const moonPath = observedSkyPath(instant, lat, lon, "moon", orbit);
   const moon = moonPath.samples;
-  const sun = skyPath(instant, lat, lon, "sun", orbit).samples;
-  const skyNow = snapshot(instant, lat, lon, orbit);
+  const sun = observedSkyPath(instant, lat, lon, "sun", orbit).samples;
+  const skyNow = observedSnapshot(instant, lat, lon, orbit);
   const cx = VB / 2;
   const cy = VB / 2 + 8;
   const radius = 118;
   const moonRuns = runs(moon, cx, cy, radius);
   const sunRuns = runs(sun, cx, cy, radius);
   const now = moonAlt > -0.4 ? project(Math.max(moonAlt, 0), moonAz, cx, cy, radius) : null;
-  const sunAlt = (skyNow.sunHz.alt * 180) / Math.PI;
-  const sunAz = ((skyNow.sunHz.az * 180) / Math.PI + 360) % 360;
+  const sunAlt = skyNow.sun.horizontal.altitudeDeg;
+  const sunAz = skyNow.sun.horizontal.azimuthDeg;
   const sunNow = sunAlt > -0.4 ? project(Math.max(sunAlt, 0), sunAz, cx, cy, radius) : null;
   const topSample = moonPath.samples.reduce<{ altDeg: number; azDeg: number } | null>(
     (best, sample) => (sample.altDeg > -0.4 && (!best || sample.altDeg > best.altDeg) ? sample : best),
