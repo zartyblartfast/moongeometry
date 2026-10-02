@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  Body,
+  Equator,
+  EquatorFromVector,
+  GeoVector,
+  Horizon,
+  HorizonFromVector,
+  Observer,
+  ObserverVector,
+  RotateVector,
+  Rotation_EQJ_HOR,
+  Vector,
+} from "astronomy-engine";
+import {
   daysSinceJ2000,
   eclipticPole,
   equatorialUnit,
@@ -19,6 +32,8 @@ import {
   sunEquatorial,
   utcOffsetPhrase,
 } from "./astro.ts";
+import { ephemerisAstronomyProvider } from "./astronomy/ephemeris-provider.ts";
+import { referenceCases, simpleVsEphemerisCases } from "./astronomy/fixtures/reference-cases.ts";
 import { simpleAstronomyProvider } from "./astronomy/simple-provider.ts";
 
 const DEG = Math.PI / 180;
@@ -33,6 +48,33 @@ function assertVecClose(actual: readonly number[], expected: readonly number[], 
   for (let i = 0; i < actual.length; i++) {
     assertClose(actual[i]!, expected[i]!, tolerance);
   }
+}
+
+function angleDeltaDeg(a: number, b: number): number {
+  return Math.abs((((a - b) % 360) + 540) % 360 - 180);
+}
+
+function assertAngleClose(actual: number, expected: number, tolerance: number): void {
+  assert.ok(angleDeltaDeg(actual, expected) <= tolerance, `${actual} vs ${expected}`);
+}
+
+function splitClockTopocentricHorizontal(
+  body: Body.Sun | Body.Moon,
+  orbitDate: Date,
+  horizontalDate: Date,
+  observer: Observer,
+): { altitudeDeg: number; azimuthDeg: number } {
+  const geocentric = GeoVector(body, orbitDate, true);
+  const observerAtHorizontalClock = ObserverVector(horizontalDate, observer, false);
+  const topocentricEqj = new Vector(
+    geocentric.x - observerAtHorizontalClock.x,
+    geocentric.y - observerAtHorizontalClock.y,
+    geocentric.z - observerAtHorizontalClock.z,
+    observerAtHorizontalClock.t,
+  );
+  const horizontalVector = RotateVector(Rotation_EQJ_HOR(horizontalDate, observer), topocentricEqj);
+  const horizontal = HorizonFromVector(horizontalVector, "");
+  return { altitudeDeg: horizontal.lat, azimuthDeg: ((horizontal.lon % 360) + 360) % 360 };
 }
 
 test("simple astronomy provider matches direct snapshot observed values", () => {
@@ -66,6 +108,91 @@ test("simple astronomy provider matches direct snapshot observed values", () => 
   assertClose(provided.hMeridian, direct.hMeridian);
   assertClose(provided.hFormula, direct.hFormula);
   assertVecClose(provided.zenith, direct.zenith);
+});
+
+test("ephemeris provider keeps schematic fields geocentric and applies observer parallax at the horizontal clock", () => {
+  const input = { instant: Date.UTC(2026, 9, 1, 20, 36, 0), orbitInstant: Date.UTC(2026, 9, 2, 3, 0, 0), latDeg: 51.5, lonDeg: -0.13 };
+  const orbitDate = new Date(input.orbitInstant);
+  const horizontalDate = new Date(input.instant);
+  const observer = new Observer(input.latDeg, input.lonDeg, 0);
+  const actual = ephemerisAstronomyProvider.snapshot(input);
+
+  const geocentricMoon = GeoVector(Body.Moon, orbitDate, true);
+  const geocentricMoonEquator = EquatorFromVector(geocentricMoon);
+  assertClose(actual.moon.equatorial.ra, geocentricMoonEquator.ra * 15 * DEG, 1e-12);
+  assertClose(actual.moon.equatorial.dec, geocentricMoonEquator.dec * DEG, 1e-12);
+  assertVecClose(actual.moon.geocentricUnit, [geocentricMoon.x / geocentricMoon.Length(), geocentricMoon.z / geocentricMoon.Length(), geocentricMoon.y / geocentricMoon.Length()], 1e-12);
+
+  const sameClockTopocentric = Equator(Body.Moon, orbitDate, observer, true, true);
+  assert.ok(Math.abs(actual.moon.equatorial.ra - sameClockTopocentric.ra * 15 * DEG) > 1e-4);
+  assert.ok(Math.abs(actual.moon.equatorial.dec - sameClockTopocentric.dec * DEG) > 1e-4);
+
+  const expectedHorizontal = splitClockTopocentricHorizontal(Body.Moon, orbitDate, horizontalDate, observer);
+  assertClose(actual.moon.horizontal.altitudeDeg, expectedHorizontal.altitudeDeg, 1e-9);
+  assertAngleClose(actual.moon.horizontal.azimuthDeg, expectedHorizontal.azimuthDeg, 1e-9);
+
+  const oldMixedClockHorizontal = Horizon(horizontalDate, observer, sameClockTopocentric.ra, sameClockTopocentric.dec, undefined);
+  assert.ok(Math.abs(actual.moon.horizontal.altitudeDeg - oldMixedClockHorizontal.altitude) > 0.01);
+
+  const shifted = ephemerisAstronomyProvider.snapshot({ ...input, instant: input.instant + 2 * 60 * 60_000 });
+  assertClose(shifted.moon.equatorial.ra, actual.moon.equatorial.ra, 1e-12);
+  assertClose(shifted.moon.equatorial.dec, actual.moon.equatorial.dec, 1e-12);
+  assertVecClose(shifted.moon.geocentricUnit, actual.moon.geocentricUnit, 1e-12);
+  assert.ok(Math.abs(shifted.moon.horizontal.hourAngle - actual.moon.horizontal.hourAngle) > 0.45);
+});
+
+test("ephemeris astronomy provider matches saved Astronomy Engine fixtures", () => {
+  for (const fixture of referenceCases) {
+    const actual = ephemerisAstronomyProvider.snapshot(fixture.input);
+    const expected = fixture.expected;
+
+    assertClose(actual.d, expected.d, 1e-12);
+    assertClose(actual.sun.equatorial.ra, expected.sun.raRad, 1e-10);
+    assertClose(actual.sun.equatorial.dec, expected.sun.decRad, 1e-10);
+    assertClose(actual.sun.horizontal.altitudeDeg, expected.sun.altitudeDeg, 1e-7);
+    assertAngleClose(actual.sun.horizontal.azimuthDeg, expected.sun.azimuthDeg, 1e-7);
+    assertClose(actual.sun.horizontal.hourAngle, expected.sun.hourAngleRad, 1e-10);
+    assertVecClose(actual.sun.geocentricUnit, expected.sun.geocentricUnit, 1e-10);
+
+    assertClose(actual.moon.equatorial.ra, expected.moon.raRad, 1e-10);
+    assertClose(actual.moon.equatorial.dec, expected.moon.decRad, 1e-10);
+    assertClose(actual.moon.horizontal.altitudeDeg, expected.moon.altitudeDeg, 1e-7);
+    assertAngleClose(actual.moon.horizontal.azimuthDeg, expected.moon.azimuthDeg, 1e-7);
+    assertClose(actual.moon.horizontal.hourAngle, expected.moon.hourAngleRad, 1e-10);
+    assertVecClose(actual.moon.geocentricUnit, expected.moon.geocentricUnit, 1e-10);
+    assertClose(actual.moon.distanceKm ?? 0, expected.moon.distanceKm, 1e-3);
+    assertClose(actual.moon.illumination, expected.moon.illumination, 1e-10);
+    assertClose(actual.moon.elongationDeg, expected.moon.elongationDeg, 1e-8);
+    assert.equal(actual.moon.waxing, expected.moon.waxing);
+    assert.equal(actual.moon.phaseName, expected.moon.phaseName);
+
+    assertClose(actual.decDeg, expected.decDeg, 1e-8);
+    assertClose(actual.hMeridian, expected.hMeridian, 1e-8);
+    assertClose(actual.hFormula, expected.hFormula, 1e-8);
+    assertVecClose(actual.zenith, expected.zenith, 1e-10);
+  }
+});
+
+test("simple and ephemeris providers disagree by documented finite amounts", () => {
+  assert.ok(simpleVsEphemerisCases.some((fixture) => fixture.expectedDifference.moonPositionDeg > 1));
+
+  for (const fixture of simpleVsEphemerisCases) {
+    const simple = simpleAstronomyProvider.snapshot(fixture.input);
+    const ephemeris = ephemerisAstronomyProvider.snapshot(fixture.input);
+    const moonPositionDeg = Math.hypot(
+      ephemeris.moon.horizontal.altitudeDeg - simple.moon.horizontal.altitudeDeg,
+      angleDeltaDeg(ephemeris.moon.horizontal.azimuthDeg, simple.moon.horizontal.azimuthDeg),
+    );
+    const sunPositionDeg = Math.hypot(
+      ephemeris.sun.horizontal.altitudeDeg - simple.sun.horizontal.altitudeDeg,
+      angleDeltaDeg(ephemeris.sun.horizontal.azimuthDeg, simple.sun.horizontal.azimuthDeg),
+    );
+
+    assertClose(moonPositionDeg, fixture.expectedDifference.moonPositionDeg, 1e-6);
+    assertClose(sunPositionDeg, fixture.expectedDifference.sunPositionDeg, 1e-6);
+    assert.ok(Number.isFinite(moonPositionDeg));
+    assert.ok(Number.isFinite(sunPositionDeg));
+  }
 });
 
 test("June solstice Sun stands near +23.4°", () => {
