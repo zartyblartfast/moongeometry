@@ -167,6 +167,8 @@ export function MoonApp() {
   const setLabel = ev.set ? formatSolarAndUtc(ev.set, lon) : ev.alwaysUp ? "Up all day" : ev.alwaysDown ? "Does not set" : "—";
   const riseValue = ev.rise ? <SolarUtcValue instant={ev.rise} lon={lon} /> : riseLabel;
   const setValue = ev.set ? <SolarUtcValue instant={ev.set} lon={lon} /> : setLabel;
+  const altitudeLabel = altDeg < 0 ? "Below horizon" : deg1(altDeg);
+  const azimuthLabel = `${deg1(azDeg)} · ${compass(azDeg)}`;
 
   const motion =
     playing === "spin"
@@ -261,7 +263,7 @@ export function MoonApp() {
                 <Toggle on={playing === "spin"} onClick={() => toggle("spin")}>Spin Earth</Toggle>
                 <Toggle on={playing === "slide"} onClick={() => toggle("slide")}>Slide the Moon</Toggle>
                 <button type="button" className="min-h-9 rounded-full bg-surface-2 px-3 text-sm text-fg" onClick={() => setInstant(Date.now())}>
-                  Now
+                  Current time
                 </button>
                 <button
                   type="button"
@@ -303,7 +305,8 @@ export function MoonApp() {
           </div>
           <p className="text-xs text-muted">Center is the zenith over the selected latitude/longitude. Gold path/dot = Sun; silver path/dot = Moon; small tick = top of Moon path.</p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <Stat k="Now" v={altDeg < 0 ? `Below horizon` : `${deg1(altDeg)} · ${compass(azDeg)}`} />
+            <Stat k="Altitude" v={altitudeLabel} />
+            <Stat k="Azimuth" v={azimuthLabel} />
             <Stat k="Declination" v={deg1(sky.decDeg)} />
             <Stat k="Top of path" v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)} />
             <Stat k="Rise" v={riseValue} />
@@ -463,7 +466,8 @@ function ExplainPanel({
                   ["Observer", `${lat.toFixed(1)}°, ${lon.toFixed(1)}°`],
                   ["Moment", dateLabel],
                   ["Phase", `${phaseName}, ${Math.round(illumination * 100)}% lit`],
-                  ["Moon now", altitudeDeg < 0 ? "Below horizon" : `${deg1(altitudeDeg)} · ${compass(azimuthDeg)}`],
+                  ["Altitude", altitudeDeg < 0 ? "Below horizon" : deg1(altitudeDeg)],
+                  ["Azimuth", `${deg1(azimuthDeg)} · ${compass(azimuthDeg)}`],
                   ["Rise / set", `${rise} / ${set}`],
                 ]}
               />
