@@ -47,7 +47,7 @@ The current screen contains two main synchronized views:
 
 2. **Local sky path**
    - A 2D backyard-sky chart showing the resulting apparent Moon path for the selected latitude, longitude, date and mean solar time.
-   - It displays current Moon altitude/azimuth, declination, rise/set and the simplified altitude relationship.
+   - It displays ephemeris-backed Moon altitude/azimuth, declination, phase, illumination and geometric rise/set, plus the altitude relationship.
 
 The controls include:
 
@@ -76,30 +76,25 @@ The app also includes an **Explain** panel with:
 
 ## Current model
 
-The current implementation is an educational mean-orbit model, not a precision ephemeris.
+The app separates ephemeris-backed observed values from an intentionally schematic teaching diagram.
 
-It uses:
+The user-facing Sun and Moon altitude, azimuth and declination; lunar phase, illumination and ecliptic coordinates; sky dots and arcs; and geometric rise/set are produced locally through the pinned `astronomy-engine` ephemeris provider. Local-sky positions are topocentric and include observer parallax. No runtime network ephemeris call is made.
 
-- mean solar longitude
-- mean lunar longitude
-- an approximate lunar orbital inclination of about 5.1°
-- Sun-Moon elongation for phase/illumination
-- spherical trigonometry to convert celestial coordinates to local altitude/azimuth
+Rise/set is the app's own geometric center crossing at altitude 0°. It does not include atmospheric refraction, apparent Sun/Moon radius, terrain or weather, so its times should not be treated as conventional apparent-rise/set almanac times.
 
-It does **not** currently implement:
+The editable date/time remains **mean solar time** at the selected longitude. UTC is a read-only reference for the same instant, not a second editable clock.
 
-- a full Keplerian elliptical lunar orbit
-- numerical gravitational integration
-- lunar libration or Cassini-state orientation
-- high-precision topocentric ephemerides
-- atmospheric refraction
-- terrain horizon
+The Three.js orrery remains educational and schematic. Geocentric ephemeris directions drive the displayed Sun and Moon angles, but object sizes, distances, orbit-hoop radius, sunlight-ray length, continents and overall scale are not realistic. It does not render libration, detailed lunar surface orientation or a Cassini-state model.
+
+The earlier simple/mean-orbit provider remains in the codebase for comparison and testing, but it is not the active observed display model.
+
+MoonGeometry is not a precision navigation or almanac tool. For work where conventions and precision matter, compare against a published almanac or specialist service.
 
 The label in the app is intentional:
 
 > Angles true · distances fiction
 
-The goal is to make the geometry understandable before replacing the simplified model with a production-grade ephemeris.
+The label describes the visual teaching model: its directions are ephemeris-driven, while its scale and drawn geometry are simplified.
 
 ---
 
@@ -112,7 +107,7 @@ sketches/                    Earlier disposable UI layout sketches
 Moon_Path_Vision_Specification.docx  Imported vision/spec document
 ```
 
-The `app/` tree still contains some imported Grok scaffold code for auth, app-data and preview hosting. The MoonGeometry product code is concentrated in `app/src/components/moon-app.tsx`, `space-scene.tsx`, `sky-chart.tsx`, `moon-phase.tsx`, and `app/src/lib/astro.ts`.
+The `app/` tree still contains some imported Grok scaffold code for auth, app-data and preview hosting. The MoonGeometry product code is concentrated in `app/src/components/moon-app.tsx`, `space-scene.tsx`, `sky-chart.tsx`, `moon-phase.tsx`, `app/src/lib/astro.ts`, and `app/src/lib/astronomy/`.
 
 Ignored local/generated items include:
 
@@ -155,12 +150,13 @@ npm run build      # production build
 
 ## Scientific context
 
-The current app's implementation is deliberately simpler than full precision astronomy, but it is grounded in standard ideas:
+The active observed model uses an ephemeris provider, while the presentation remains an educational simplification grounded in standard ideas:
 
-- spherical astronomy for converting celestial coordinates to local altitude/azimuth
+- topocentric equatorial-of-date positions and observer parallax
+- spherical astronomy for converting equatorial coordinates to geometric local altitude/azimuth
 - lunar orbital inclination relative to the ecliptic
-- phase from Sun-Moon elongation
+- ephemeris-backed lunar phase and illumination
 - historical context from Kepler, Newton and Cassini
-- modern reference standards such as the Astronomical Almanac, USNO services and JPL Horizons for future precision work
+- modern reference standards such as the Astronomical Almanac, USNO services and JPL Horizons for precision comparison
 
-The scientific-basis section in the app distinguishes what is implemented now from historical and modern reference context.
+The scientific-basis section in the app distinguishes the active calculations, historical/physical context and intentionally schematic visual geometry.

@@ -363,7 +363,7 @@ export function MoonApp() {
           />
         </label>
         <p className="text-xs text-muted sm:col-span-2 lg:col-span-9">
-          Mean circular orbit, not a full ephemeris. Drag the model to turn it. The Earth spin slider sets the pace, from one night up to a whole year. Slide the Moon holds the clock and lets declination drift.
+          Topocentric ephemeris positions. Geometric rise/set. No refraction. Distances remain schematic. Drag the model to turn it. The Earth spin slider sets the pace, from one night up to a whole year. Slide the Moon holds the clock and lets declination drift.
         </p>
       </section>
     </main>
@@ -456,7 +456,7 @@ function ExplainPanel({
           {tab === "summary" ? (
             <div className="space-y-4">
               <p className="text-base text-fg">
-                The left diagram shows the Moon's position in its tilted orbit. The right diagram shows what that same geometry becomes after Earth's rotation and your local horizon are applied.
+                The left diagram is a schematic orrery: ephemeris directions set the Sun and Moon angles, while sizes and distances are simplified. The right diagram applies Earth's rotation, your position and observer parallax to show the local sky.
               </p>
               <ValueGrid
                 rows={[
@@ -479,8 +479,8 @@ function ExplainPanel({
               <p className="text-base text-fg">Live values from the current app state</p>
               <ValueGrid
                 rows={[
-                  ["Moon ecliptic longitude", deg1(moonEclLonDeg)],
-                  ["Moon ecliptic latitude", deg1(moonEclLatDeg)],
+                  ["Geocentric ecliptic longitude", deg1(moonEclLonDeg)],
+                  ["Geocentric ecliptic latitude", deg1(moonEclLatDeg)],
                   ["Moon declination", deg1(declinationDeg)],
                   ["Hour angle", deg1(hourAngleDeg)],
                   ["Altitude result", deg1(altitudeDeg)],
@@ -495,7 +495,7 @@ function ExplainPanel({
                 <div>h = Moon altitude = {deg1(altitudeDeg)}</div>
               </div>
               <p>
-                This is the standard spherical-astronomy conversion from equatorial coordinates to local horizon coordinates. It is the mathematical step that turns orbital/celestial position into “where should I look?”
+                The ephemeris supplies the Moon's topocentric equatorial-of-date declination and hour angle after observer parallax is applied. This standard spherical-astronomy conversion turns those values into geometric local horizon coordinates.
               </p>
             </div>
           ) : null}
@@ -504,14 +504,14 @@ function ExplainPanel({
             <div className="space-y-4">
               <p className="text-base text-fg">Scientific basis and history</p>
               <p>
-                This prototype does not implement a full Keplerian ellipse, Cassini-state libration model, or modern numerical ephemeris. The current picture is an educational model built from mean solar/lunar longitude, a fixed approximate lunar inclination, and spherical trigonometry for the local sky conversion.
+                The observed display is calculated locally through the pinned Astronomy Engine ephemeris provider. Sun and Moon positions, lunar phase and illumination come from that provider; local-sky positions are topocentric and include observer parallax. No network ephemeris call is made at runtime.
               </p>
               <ul className="space-y-3">
-                <li><strong className="text-fg">Implemented here:</strong> mean longitude for the Sun and Moon, an approximate 5.1° lunar-orbit tilt, phase from Sun-Moon elongation, and local altitude/azimuth from latitude, longitude, time, declination and hour angle.</li>
-                <li><strong className="text-fg">Kepler</strong> is historical context for orbital geometry and the later understanding that real orbits are elliptical; this prototype currently uses a simpler mean circular orbit.</li>
+                <li><strong className="text-fg">Implemented here:</strong> ephemeris-backed Sun and Moon directions, lunar ecliptic coordinates, phase and illumination; topocentric declination, altitude and azimuth; and locally sampled sky paths with geometric rise/set.</li>
+                <li><strong className="text-fg">Kepler</strong> provides historical and physical context for elliptical orbital motion. The active ephemeris accounts for real orbital variation; the drawn orbit hoop remains a simplified teaching shape.</li>
                 <li><strong className="text-fg">Newton</strong> is context for the physical cause of orbital motion: gravity and motion. The app does not numerically integrate gravitational forces.</li>
-                <li><strong className="text-fg">Cassini</strong> is context for lunar rotation and orientation: the Moon's synchronous spin and the relationship between its equator, orbit plane and the ecliptic. The app does not yet calculate libration or Cassini-state orientation.</li>
-                <li><strong className="text-fg">Modern ephemerides</strong> are the precision standard for production-grade positions, using reference frames, time standards, perturbation models and observer corrections.</li>
+                <li><strong className="text-fg">Cassini</strong> is context for lunar rotation and orientation: the Moon's synchronous spin and the relationship between its equator, orbit plane and the ecliptic. Libration and detailed Cassini-state orientation are not rendered.</li>
+                <li><strong className="text-fg">Modern ephemerides</strong> use defined reference frames, time standards, perturbation models and observer corrections. This app uses an ephemeris provider for its observed values, while keeping the visual model intentionally schematic.</li>
               </ul>
               <p className="text-base text-fg">Further reading</p>
               <ul className="grid gap-2">
@@ -530,16 +530,17 @@ function ExplainPanel({
             <div className="space-y-4">
               <p className="text-base text-fg">Model limits</p>
               <p>
-                This prototype is designed to explain the geometry, not to be a full precision almanac. It currently uses a simplified mean-orbit model and schematic distances.
+                This is an educational geometry app, not a precision navigation or almanac tool. Ephemeris-backed observed values and the schematic orrery serve different purposes.
               </p>
               <ul className="list-disc space-y-2 pl-5">
-                <li>Distances and object sizes are deliberately not to scale.</li>
-                <li>The lunar orbit is simplified; full perturbations are not yet included.</li>
-                <li>Atmospheric refraction, terrain horizon and weather are not included.</li>
-                <li>For precision ephemerides, compare against sources such as the Astronomical Almanac, USNO services or JPL Horizons.</li>
+                <li>Rise/set is the app's geometric center crossing at altitude 0°: no atmospheric refraction, apparent disk radius, terrain or weather.</li>
+                <li>Object sizes, distances, orbit-hoop radius, sunlight-ray length, continents and overall scale are deliberately unrealistic.</li>
+                <li>Geocentric ephemeris directions set the orrery's Sun and Moon angles, but its visual geometry is simplified.</li>
+                <li>Libration and detailed lunar surface or Cassini-state orientation are outside the current scope.</li>
+                <li>The editable clock is mean solar time at the selected longitude; UTC is a reference, not a second editable clock.</li>
               </ul>
               <p>
-                In short: the app aims to preserve the important angular relationships so the visual explanation is clear, while being explicit about where a production-grade ephemeris would need more detail.
+                Use a published almanac or navigation service when its conventions and precision matter.
               </p>
             </div>
           ) : null}
