@@ -1,6 +1,12 @@
 import type { SkyPath } from "../astro.ts";
 import { ephemerisAstronomyProvider } from "./ephemeris-provider.ts";
-import type { AstronomyProvider, AstronomyProviderSnapshot, HorizontalPosition } from "./provider.ts";
+import type {
+  AstronomyBody,
+  AstronomyProvider,
+  AstronomyProviderSnapshot,
+  FrozenBodyOrbitalState,
+  HorizontalPosition,
+} from "./provider.ts";
 
 const SOLAR_DAY_MS = 86_400_000;
 const SIDEREAL_DAY_MS = SOLAR_DAY_MS * (360 / 360.98564736629);
@@ -8,12 +14,16 @@ const PATH_SAMPLE_COUNT = 192;
 const EVENT_STEP_MS = 5 * 60_000;
 const EVENT_SCAN_COUNT = Math.ceil(SIDEREAL_DAY_MS / EVENT_STEP_MS) + 2;
 
-type Body = "sun" | "moon";
-
 type TimedSample = {
   t: number;
   altDeg: number;
   azDeg: number;
+};
+
+export type ObservedViewState = {
+  snapshot: AstronomyProviderSnapshot;
+  moonPath: SkyPath;
+  sunPath: SkyPath;
 };
 
 export function observedSnapshot(
@@ -26,30 +36,24 @@ export function observedSnapshot(
   return provider.snapshot({ instant, orbitInstant, latDeg, lonDeg });
 }
 
-function bodyHorizontal(snapshot: AstronomyProviderSnapshot, which: Body): HorizontalPosition {
-  return which === "sun" ? snapshot.sun.horizontal : snapshot.moon.horizontal;
-}
-
 function horizontalAt(
   provider: AstronomyProvider,
   instant: number,
-  orbitInstant: number,
   latDeg: number,
   lonDeg: number,
-  which: Body,
+  orbitalState: FrozenBodyOrbitalState,
 ): HorizontalPosition {
-  return bodyHorizontal(observedSnapshot(instant, latDeg, lonDeg, orbitInstant, provider), which);
+  return provider.topocentricGeometricHorizontal({ instant, latDeg, lonDeg, orbitalState });
 }
 
 function timedSample(
   provider: AstronomyProvider,
   t: number,
-  orbitInstant: number,
   latDeg: number,
   lonDeg: number,
-  which: Body,
+  orbitalState: FrozenBodyOrbitalState,
 ): TimedSample {
-  const horizontal = horizontalAt(provider, t, orbitInstant, latDeg, lonDeg, which);
+  const horizontal = horizontalAt(provider, t, latDeg, lonDeg, orbitalState);
   return { t, altDeg: horizontal.altitudeDeg, azDeg: horizontal.azimuthDeg };
 }
 
@@ -65,15 +69,14 @@ function crossing(a: TimedSample, b: TimedSample, direction: "rise" | "set"): nu
 function previousCrossing(
   provider: AstronomyProvider,
   instant: number,
-  orbitInstant: number,
   latDeg: number,
   lonDeg: number,
-  which: Body,
+  orbitalState: FrozenBodyOrbitalState,
   direction: "rise" | "set",
 ): number | null {
-  let later = timedSample(provider, instant, orbitInstant, latDeg, lonDeg, which);
+  let later = timedSample(provider, instant, latDeg, lonDeg, orbitalState);
   for (let i = 1; i <= EVENT_SCAN_COUNT; i++) {
-    const earlier = timedSample(provider, instant - i * EVENT_STEP_MS, orbitInstant, latDeg, lonDeg, which);
+    const earlier = timedSample(provider, instant - i * EVENT_STEP_MS, latDeg, lonDeg, orbitalState);
     const hit = crossing(earlier, later, direction);
     if (hit != null) return hit;
     later = earlier;
@@ -84,15 +87,14 @@ function previousCrossing(
 function nextCrossing(
   provider: AstronomyProvider,
   instant: number,
-  orbitInstant: number,
   latDeg: number,
   lonDeg: number,
-  which: Body,
+  orbitalState: FrozenBodyOrbitalState,
   direction: "rise" | "set",
 ): number | null {
-  let earlier = timedSample(provider, instant, orbitInstant, latDeg, lonDeg, which);
+  let earlier = timedSample(provider, instant, latDeg, lonDeg, orbitalState);
   for (let i = 1; i <= EVENT_SCAN_COUNT; i++) {
-    const later = timedSample(provider, instant + i * EVENT_STEP_MS, orbitInstant, latDeg, lonDeg, which);
+    const later = timedSample(provider, instant + i * EVENT_STEP_MS, latDeg, lonDeg, orbitalState);
     const hit = crossing(earlier, later, direction);
     if (hit != null) return hit;
     earlier = later;
@@ -114,15 +116,16 @@ export function observedSkyPath(
   instant: number,
   latDeg: number,
   lonDeg: number,
-  which: Body,
+  which: AstronomyBody,
   orbitInstant = instant,
   provider: AstronomyProvider = ephemerisAstronomyProvider,
 ): SkyPath {
+  const orbitalState = provider.freezeBodyOrbitalState(which, orbitInstant);
   const samples: TimedSample[] = [];
   let transitAlt: number | null = null;
   for (let i = 0; i <= PATH_SAMPLE_COUNT; i++) {
     const t = instant - SIDEREAL_DAY_MS / 2 + (i / PATH_SAMPLE_COUNT) * SIDEREAL_DAY_MS;
-    const sample = timedSample(provider, t, orbitInstant, latDeg, lonDeg, which);
+    const sample = timedSample(provider, t, latDeg, lonDeg, orbitalState);
     samples.push(sample);
     transitAlt = transitAlt == null ? sample.altDeg : Math.max(transitAlt, sample.altDeg);
   }
@@ -132,17 +135,17 @@ export function observedSkyPath(
   const hasSet = samples.some((sample, index) => index > 0 && crossing(samples[index - 1]!, sample, "set") != null);
   const alwaysUp = aboveCount === samples.length;
   const alwaysDown = aboveCount === 0;
-  const now = horizontalAt(provider, instant, orbitInstant, latDeg, lonDeg, which);
+  const now = horizontalAt(provider, instant, latDeg, lonDeg, orbitalState);
 
   let rise: number | null = null;
   let set: number | null = null;
   if (hasRise || hasSet) {
     if (now.altitudeDeg > 0) {
-      rise = previousCrossing(provider, instant, orbitInstant, latDeg, lonDeg, which, "rise");
-      set = nextCrossing(provider, instant, orbitInstant, latDeg, lonDeg, which, "set");
+      rise = previousCrossing(provider, instant, latDeg, lonDeg, orbitalState, "rise");
+      set = nextCrossing(provider, instant, latDeg, lonDeg, orbitalState, "set");
     } else {
-      rise = nextCrossing(provider, instant, orbitInstant, latDeg, lonDeg, which, "rise");
-      set = rise == null ? null : nextCrossing(provider, rise + 1, orbitInstant, latDeg, lonDeg, which, "set");
+      rise = nextCrossing(provider, instant, latDeg, lonDeg, orbitalState, "rise");
+      set = rise == null ? null : nextCrossing(provider, rise + 1, latDeg, lonDeg, orbitalState, "set");
     }
   }
 
@@ -153,5 +156,19 @@ export function observedSkyPath(
     rise,
     set,
     transitAlt,
+  };
+}
+
+export function observedViewState(
+  instant: number,
+  latDeg: number,
+  lonDeg: number,
+  orbitInstant = instant,
+  provider: AstronomyProvider = ephemerisAstronomyProvider,
+): ObservedViewState {
+  return {
+    snapshot: observedSnapshot(instant, latDeg, lonDeg, orbitInstant, provider),
+    moonPath: observedSkyPath(instant, latDeg, lonDeg, "moon", orbitInstant, provider),
+    sunPath: observedSkyPath(instant, latDeg, lonDeg, "sun", orbitInstant, provider),
   };
 }

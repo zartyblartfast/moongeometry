@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   compass,
   dateInputValue,
@@ -12,7 +12,7 @@ import {
   nearestFullEvening,
   timeInputValue,
 } from "@/lib/astro";
-import { observedSkyPath, observedSnapshot } from "@/lib/astronomy/observed";
+import { observedViewState } from "@/lib/astronomy/observed";
 import { useMoon, type Play, type Snap } from "@/lib/store";
 import { MoonPhase } from "./moon-phase";
 import { PlaceSearch } from "./place-search";
@@ -152,8 +152,9 @@ export function MoonApp() {
     replaceUrlState(lat, lon, instant);
   }, [instant, lat, lon, mounted, playing]);
 
-  const sky = observedSnapshot(instant, lat, lon, orbit);
-  const ev = observedSkyPath(instant, lat, lon, "moon", orbit);
+  const observed = useMemo(() => observedViewState(instant, lat, lon, orbit), [instant, lat, lon, orbit]);
+  const sky = observed.snapshot;
+  const ev = observed.moonPath;
   const altDeg = sky.moon.horizontal.altitudeDeg;
   const azDeg = sky.moon.horizontal.azimuthDeg;
   const hourAngleDeg = sky.moon.horizontal.hourAngle * 180 / Math.PI;
@@ -203,7 +204,7 @@ export function MoonApp() {
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
         <section className="flex flex-col overflow-hidden rounded-card bg-surface">
           <div className="relative h-80 min-h-72 lg:h-[25.5rem]">
-            <SpaceScene />
+            <SpaceScene snapshot={sky} orbitInstant={orbit} />
             <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1 text-xs">
               <span className="mb-1 text-sm font-semibold text-fg">Orbital geometry — the Moon's tilted orbit around Earth</span>
               <span className="text-equator">Equator</span>
@@ -297,7 +298,7 @@ export function MoonApp() {
             </button>
           </div>
           <div className="h-52 sm:h-56">
-            <SkyChart instant={instant} orbit={orbit} lat={lat} lon={lon} moonAlt={altDeg} moonAz={azDeg} />
+            <SkyChart snapshot={sky} moonPath={observed.moonPath} sunPath={observed.sunPath} />
           </div>
           <p className="text-xs text-muted">Center is the zenith over the selected latitude/longitude. Gold path/dot = Sun; silver path/dot = Moon; small tick = top of Moon path.</p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

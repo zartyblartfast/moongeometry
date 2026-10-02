@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { daysSinceJ2000, eclipticPole, gmstDeg, hoopPoints, sunBeam, type Vec3 } from "@/lib/astro";
-import { observedSnapshot } from "@/lib/astronomy/observed";
+import { ephemerisAstronomyProvider } from "@/lib/astronomy/ephemeris-provider";
+import type { AstronomyProviderSnapshot, OrbitalGeometryState } from "@/lib/astronomy/provider";
 import { palette } from "@/lib/palette";
 import { useMoon, type Snap } from "@/lib/store";
 
@@ -240,17 +241,24 @@ function arrow2d(tail: Vec3, head: Vec3, w: number, h: number) {
   };
 }
 
-export function SpaceScene() {
+export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProviderSnapshot; orbitInstant: number }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
   const drawRef = useRef<(rot: number, orb: number) => void>(() => {});
+  const sharedGeometryRef = useRef<OrbitalGeometryState>({
+    orbitInstant,
+    d: snapshot.d,
+    sunGeocentricUnit: snapshot.sun.geocentricUnit,
+    moonGeocentricUnit: snapshot.moon.geocentricUnit,
+  });
+  sharedGeometryRef.current = {
+    orbitInstant,
+    d: snapshot.d,
+    sunGeocentricUnit: snapshot.sun.geocentricUnit,
+    moonGeocentricUnit: snapshot.moon.geocentricUnit,
+  };
   const [failed, setFailed] = useState(false);
-  const instant = useMoon((s) => s.instant);
-  const orbit = useMoon((s) => s.orbit);
-  const lat = useMoon((s) => s.lat);
-  const lon = useMoon((s) => s.lon);
-  const sky = observedSnapshot(instant, lat, lon, orbit);
-  const d = sky.d;
+  const d = snapshot.d;
 
   useEffect(() => {
     let rot = useMoon.getState().instant;
@@ -465,32 +473,40 @@ export function SpaceScene() {
     const pos = new THREE.Vector3();
 
     let hoopKey = "";
+    let cachedOrbitalGeometry = sharedGeometryRef.current;
     const draw = (rotation: number, orbitAt: number) => {
       const live = useMoon.getState();
-      const skyNow = observedSnapshot(rotation, live.lat, live.lon, orbitAt);
-      const key = `${live.lat.toFixed(2)}|${live.lon.toFixed(2)}|${Math.floor(skyNow.d)}`;
+      if (cachedOrbitalGeometry.orbitInstant !== orbitAt) {
+        const sharedGeometry = sharedGeometryRef.current;
+        cachedOrbitalGeometry = sharedGeometry.orbitInstant === orbitAt
+          ? sharedGeometry
+          : ephemerisAstronomyProvider.orbitalGeometry(orbitAt);
+      }
+      const key = `${live.lat.toFixed(2)}|${live.lon.toFixed(2)}|${Math.floor(cachedOrbitalGeometry.d)}`;
       if (key !== hoopKey) {
         hoopKey = key;
-        setLoop(equator, hoopPoints("equator", skyNow.d, 128), HOOP);
-        setLoop(ecliptic, hoopPoints("ecliptic", skyNow.d, 128), HOOP);
-        setLoop(lunar, hoopPoints("moon", skyNow.d, 160), HOOP);
+        setLoop(equator, hoopPoints("equator", cachedOrbitalGeometry.d, 128), HOOP);
+        setLoop(ecliptic, hoopPoints("ecliptic", cachedOrbitalGeometry.d, 128), HOOP);
+        setLoop(lunar, hoopPoints("moon", cachedOrbitalGeometry.d, 160), HOOP);
         setSeg(axis, [0, -1.25, 0], [0, 1.32, 0]);
       }
-      const moonPos: Vec3 = [skyNow.moon.geocentricUnit[0] * HOOP, skyNow.moon.geocentricUnit[1] * HOOP, skyNow.moon.geocentricUnit[2] * HOOP];
+      const sunUnit = cachedOrbitalGeometry.sunGeocentricUnit;
+      const moonUnit = cachedOrbitalGeometry.moonGeocentricUnit;
+      const moonPos: Vec3 = [moonUnit[0] * HOOP, moonUnit[1] * HOOP, moonUnit[2] * HOOP];
       earth.rotation.y = -gmstDeg(daysSinceJ2000(rotation)) * (Math.PI / 180);
-      (earthMaterial.uniforms.sunDir.value as THREE.Vector3).set(skyNow.sun.geocentricUnit[0], skyNow.sun.geocentricUnit[1], skyNow.sun.geocentricUnit[2]).normalize();
+      (earthMaterial.uniforms.sunDir.value as THREE.Vector3).set(sunUnit[0], sunUnit[1], sunUnit[2]).normalize();
       moon.position.set(moonPos[0], moonPos[1], moonPos[2]);
-      const away = new THREE.Vector3(-skyNow.sun.geocentricUnit[0], -skyNow.sun.geocentricUnit[1], -skyNow.sun.geocentricUnit[2]).normalize();
+      const away = new THREE.Vector3(-sunUnit[0], -sunUnit[1], -sunUnit[2]).normalize();
       dark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), away);
-      sunLight.position.set(skyNow.sun.geocentricUnit[0] * 8, skyNow.sun.geocentricUnit[1] * 8, skyNow.sun.geocentricUnit[2] * 8);
-      const zen = new THREE.Vector3(...skyNow.zenith);
+      sunLight.position.set(sunUnit[0] * 8, sunUnit[1] * 8, sunUnit[2] * 8);
+      const zen = new THREE.Vector3(...ephemerisAstronomyProvider.observerZenith(rotation, live.lat, live.lon));
       figure.position.copy(zen).multiplyScalar(EARTH + 0.025);
       figure.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), zen.clone().normalize());
       plate.position.copy(zen).multiplyScalar(EARTH + 0.012);
       plate.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), zen.clone().normalize());
       setSeg(sight, [zen.x * EARTH, zen.y * EARTH, zen.z * EARTH], moonPos);
-      const beam = sunBeam(skyNow.sun.geocentricUnit);
-      sunV.set(skyNow.sun.geocentricUnit[0], skyNow.sun.geocentricUnit[1], skyNow.sun.geocentricUnit[2]);
+      const beam = sunBeam(sunUnit);
+      sunV.set(sunUnit[0], sunUnit[1], sunUnit[2]);
       sideV.crossVectors(poleV, sunV).normalize();
       dir.copy(sunV).negate();
       basis.makeBasis(sideV, dir, poleV);
@@ -557,7 +573,7 @@ export function SpaceScene() {
   const eq = ringPath(hoopPoints("equator", d, 80), HOOP, w, h);
   const ec = ringPath(hoopPoints("ecliptic", d, 80), HOOP, w, h);
   const mo = ringPath(hoopPoints("moon", d, 96), HOOP, w, h);
-  const beam = sunBeam(sky.sun.geocentricUnit);
+  const beam = sunBeam(snapshot.sun.geocentricUnit);
   const arrows = beam.map((ray) => arrow2d(ray.tail, ray.head, w, h));
   const mid = beam[2]!;
   const reach = Math.hypot(mid.head[0], mid.head[1], mid.head[2]) || 1;
@@ -565,7 +581,7 @@ export function SpaceScene() {
   const guideA = project(mid.head, w, h);
   const guideB = project([mid.head[0] * stop, mid.head[1] * stop, mid.head[2] * stop], w, h);
   const guidePath = `M ${guideA[0].toFixed(1)} ${guideA[1].toFixed(1)} L ${guideB[0].toFixed(1)} ${guideB[1].toFixed(1)}`;
-  const moonDot = project([sky.moon.geocentricUnit[0] * HOOP, sky.moon.geocentricUnit[1] * HOOP, sky.moon.geocentricUnit[2] * HOOP], w, h);
+  const moonDot = project([snapshot.moon.geocentricUnit[0] * HOOP, snapshot.moon.geocentricUnit[1] * HOOP, snapshot.moon.geocentricUnit[2] * HOOP], w, h);
   const earthDot = project([0, 0, 0], w, h);
 
   return (

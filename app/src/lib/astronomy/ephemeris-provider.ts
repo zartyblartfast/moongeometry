@@ -6,6 +6,7 @@ import {
   HorizonFromVector,
   Illumination,
   KM_PER_AU,
+  MakeTime,
   MoonPhase,
   Observer,
   ObserverVector,
@@ -24,7 +25,14 @@ import {
   type Phase,
   type Vec3,
 } from "../astro.ts";
-import type { AstronomyProvider, BodyState, HorizontalPosition, MoonState } from "./provider.ts";
+import type {
+  AstronomyBody,
+  AstronomyProvider,
+  BodyState,
+  FrozenBodyOrbitalState,
+  HorizontalPosition,
+  MoonState,
+} from "./provider.ts";
 
 const DEG_TO_RAD = Math.PI / 180;
 const HOURS_TO_RAD = Math.PI / 12;
@@ -49,6 +57,24 @@ function vectorLength(v: Vector): number {
 function unitFromVector(v: Vector): Vec3 {
   const length = vectorLength(v) || 1;
   return [v.x / length, v.z / length, v.y / length];
+}
+
+function vectorFromFrozenState(state: FrozenBodyOrbitalState, instant: number): Vector {
+  const [xAu, yAu, zAu] = state.geocentricEquatorialVectorAu;
+  return new Vector(xAu, yAu, zAu, MakeTime(instant));
+}
+
+function engineBody(body: AstronomyBody): Body.Sun | Body.Moon {
+  return body === "sun" ? Body.Sun : Body.Moon;
+}
+
+function freezeBodyOrbitalState(body: AstronomyBody, orbitInstant: number): FrozenBodyOrbitalState {
+  const vector = GeoVector(engineBody(body), new Date(orbitInstant), true);
+  return {
+    body,
+    orbitInstant,
+    geocentricEquatorialVectorAu: [vector.x, vector.y, vector.z],
+  };
 }
 
 function horizontalFromGeocentricVector(
@@ -110,6 +136,29 @@ function bodyState(body: Body.Sun | Body.Moon, orbitDate: Date, horizontalDate: 
 }
 
 export const ephemerisAstronomyProvider: AstronomyProvider = {
+  freezeBodyOrbitalState,
+  topocentricGeometricHorizontal(input) {
+    return horizontalFromGeocentricVector(
+      vectorFromFrozenState(input.orbitalState, input.instant),
+      new Date(input.instant),
+      new Observer(input.latDeg, input.lonDeg, 0),
+      input.lonDeg,
+    );
+  },
+  orbitalGeometry(orbitInstant) {
+    const sunState = freezeBodyOrbitalState("sun", orbitInstant);
+    const moonState = freezeBodyOrbitalState("moon", orbitInstant);
+    return {
+      orbitInstant,
+      d: daysSinceJ2000(orbitInstant),
+      sunGeocentricUnit: unitFromVector(vectorFromFrozenState(sunState, orbitInstant)),
+      moonGeocentricUnit: unitFromVector(vectorFromFrozenState(moonState, orbitInstant)),
+    };
+  },
+  observerZenith(instant, latDeg, lonDeg) {
+    const localSiderealRadians = (SiderealTime(new Date(instant)) + lonDeg / 15) * HOURS_TO_RAD;
+    return equatorialUnit(localSiderealRadians, latDeg * DEG_TO_RAD);
+  },
   snapshot(input) {
     const horizontalDate = new Date(input.instant);
     const orbitDate = new Date(input.orbitInstant);
@@ -134,7 +183,6 @@ export const ephemerisAstronomyProvider: AstronomyProvider = {
       phaseName: phaseName(illumination, waxing),
     };
     const decDeg = moon.equatorial.dec * RAD_TO_DEG;
-    const localSiderealRadians = (SiderealTime(horizontalDate) + input.lonDeg / 15) * HOURS_TO_RAD;
 
     return {
       d: daysSinceJ2000(input.orbitInstant),
@@ -143,7 +191,7 @@ export const ephemerisAstronomyProvider: AstronomyProvider = {
       decDeg,
       hMeridian: meridianAltitudeDeg(decDeg, input.latDeg),
       hFormula: formulaAltitudeDeg(decDeg, input.latDeg),
-      zenith: equatorialUnit(localSiderealRadians, input.latDeg * DEG_TO_RAD),
+      zenith: this.observerZenith(input.instant, input.latDeg, input.lonDeg),
     };
   },
 };

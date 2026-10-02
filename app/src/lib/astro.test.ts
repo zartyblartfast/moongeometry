@@ -35,7 +35,7 @@ import {
 } from "./astro.ts";
 import { ephemerisAstronomyProvider } from "./astronomy/ephemeris-provider.ts";
 import { referenceCases, simpleVsEphemerisCases } from "./astronomy/fixtures/reference-cases.ts";
-import { observedSkyPath, observedSnapshot } from "./astronomy/observed.ts";
+import { observedSkyPath, observedSnapshot, observedViewState } from "./astronomy/observed.ts";
 import type { AstronomyProvider } from "./astronomy/provider.ts";
 import { simpleAstronomyProvider } from "./astronomy/simple-provider.ts";
 
@@ -150,6 +150,23 @@ test("ephemeris provider keeps schematic fields geocentric and applies observer 
 
   const shiftedOrbit = ephemerisAstronomyProvider.snapshot({ ...input, orbitInstant: input.orbitInstant + 24 * 60 * 60_000 });
   assert.ok(angleDeltaDeg(shiftedOrbit.moon.ecliptic.longitudeDeg, actual.moon.ecliptic.longitudeDeg) > 10);
+});
+
+test("frozen-body horizontal evaluation matches full ephemeris snapshots", () => {
+  const orbitInstant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const latDeg = 51.5;
+  const lonDeg = -0.13;
+  for (const body of ["sun", "moon"] as const) {
+    const orbitalState = ephemerisAstronomyProvider.freezeBodyOrbitalState(body, orbitInstant);
+    for (const hourOffset of [-9, 0, 7]) {
+      const instant = orbitInstant + hourOffset * 3_600_000;
+      const narrow = ephemerisAstronomyProvider.topocentricGeometricHorizontal({ instant, latDeg, lonDeg, orbitalState });
+      const full = ephemerisAstronomyProvider.snapshot({ instant, orbitInstant, latDeg, lonDeg })[body].horizontal;
+      assertClose(narrow.altitudeDeg, full.altitudeDeg, 1e-12);
+      assertAngleClose(narrow.azimuthDeg, full.azimuthDeg, 1e-12);
+      assertClose(narrow.hourAngle, full.hourAngle, 1e-12);
+    }
+  }
 });
 
 test("ephemeris astronomy provider matches saved Astronomy Engine fixtures", () => {
@@ -292,25 +309,46 @@ test("observed ephemeris sky paths keep the frozen-orbit Moon and Sun dots on th
   }
 });
 
+test("observed view shares one full snapshot and freezes each body once", () => {
+  const instant = Date.UTC(2026, 9, 1, 20, 36, 0);
+  const orbitInstant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  let snapshotCalls = 0;
+  let frozenBodyCalls = 0;
+  const provider: AstronomyProvider = {
+    ...simpleAstronomyProvider,
+    snapshot(input) {
+      snapshotCalls += 1;
+      return simpleAstronomyProvider.snapshot(input);
+    },
+    freezeBodyOrbitalState(body, frozenOrbitInstant) {
+      frozenBodyCalls += 1;
+      return simpleAstronomyProvider.freezeBodyOrbitalState(body, frozenOrbitInstant);
+    },
+  };
+
+  observedViewState(instant, 51.5, -0.13, orbitInstant, provider);
+
+  assert.equal(snapshotCalls, 1);
+  assert.equal(frozenBodyCalls, 2);
+});
+
 test("observed rise and set are interpolated geometric zero-altitude crossings", () => {
   const orbitInstant = Date.UTC(2026, 9, 2, 3, 0, 0);
   const instant = 3 * 60 * 60_000;
   const seenOrbitInstants = new Set<number>();
   const provider: AstronomyProvider = {
-    snapshot(input) {
-      seenOrbitInstants.add(input.orbitInstant);
-      const base = simpleAstronomyProvider.snapshot(input);
+    ...simpleAstronomyProvider,
+    freezeBodyOrbitalState(body, frozenOrbitInstant) {
+      seenOrbitInstants.add(frozenOrbitInstant);
+      return simpleAstronomyProvider.freezeBodyOrbitalState(body, frozenOrbitInstant);
+    },
+    topocentricGeometricHorizontal(input) {
+      const base = simpleAstronomyProvider.topocentricGeometricHorizontal(input);
       const phase = (input.instant / (12 * 60 * 60_000)) * Math.PI * 2;
       return {
         ...base,
-        moon: {
-          ...base.moon,
-          horizontal: {
-            ...base.moon.horizontal,
-            altitudeDeg: 30 * Math.sin(phase),
-            azimuthDeg: ((input.instant / 60_000) % 360 + 360) % 360,
-          },
-        },
+        altitudeDeg: 30 * Math.sin(phase),
+        azimuthDeg: ((input.instant / 60_000) % 360 + 360) % 360,
       };
     },
   };

@@ -9,6 +9,31 @@ export type AstronomyProviderInput = {
   lonDeg: number;
 };
 
+export type AstronomyBody = "sun" | "moon";
+
+/** Frozen geocentric EQJ vector for one body, in astronomical units. */
+export type FrozenBodyOrbitalState = {
+  body: AstronomyBody;
+  orbitInstant: number;
+  geocentricEquatorialVectorAu: readonly [xAu: number, yAu: number, zAu: number];
+};
+
+export type TopocentricHorizontalInput = {
+  /** Clock/Earth-rotation instant; orbital state remains frozen separately. */
+  instant: number;
+  latDeg: number;
+  lonDeg: number;
+  orbitalState: FrozenBodyOrbitalState;
+};
+
+export type OrbitalGeometryState = {
+  orbitInstant: number;
+  /** Days since J2000 for orbitInstant. */
+  d: number;
+  sunGeocentricUnit: Vec3;
+  moonGeocentricUnit: Vec3;
+};
+
 export type EquatorialPosition = {
   /** Right ascension, radians. */
   ra: number;
@@ -70,4 +95,8 @@ export type AstronomyProviderSnapshot = {
 
 export interface AstronomyProvider {
   snapshot(input: AstronomyProviderInput): AstronomyProviderSnapshot;
+  freezeBodyOrbitalState(body: AstronomyBody, orbitInstant: number): FrozenBodyOrbitalState;
+  topocentricGeometricHorizontal(input: TopocentricHorizontalInput): HorizontalPosition;
+  orbitalGeometry(orbitInstant: number): OrbitalGeometryState;
+  observerZenith(instant: number, latDeg: number, lonDeg: number): Vec3;
 }
