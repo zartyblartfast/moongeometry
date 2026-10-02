@@ -58,9 +58,11 @@ export type EclipticPosition = {
 };
 
 export type BodyState = {
-  /** Geocentric equatorial position for schematic orrery geometry. */
-  equatorial: EquatorialPosition;
-  /** Topocentric apparent position for sky/stat display. */
+  /** Geocentric J2000 equatorial position for schematic orrery geometry. */
+  geocentricEquatorialJ2000: EquatorialPosition;
+  /** Topocentric equatorial-of-date position used for the local sky conversion. */
+  observedEquatorial: EquatorialPosition;
+  /** Topocentric geometric position for sky/stat display. */
   horizontal: HorizontalPosition;
   /** Geocentric unit vector in the app's existing equatorial frame. */
   geocentricUnit: Vec3;

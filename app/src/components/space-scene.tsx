@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { daysSinceJ2000, eclipticPole, gmstDeg, hoopPoints, sunBeam, type Vec3 } from "@/lib/astro";
 import { ephemerisAstronomyProvider } from "@/lib/astronomy/ephemeris-provider";
@@ -251,12 +251,14 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     sunGeocentricUnit: snapshot.sun.geocentricUnit,
     moonGeocentricUnit: snapshot.moon.geocentricUnit,
   });
-  sharedGeometryRef.current = {
-    orbitInstant,
-    d: snapshot.d,
-    sunGeocentricUnit: snapshot.sun.geocentricUnit,
-    moonGeocentricUnit: snapshot.moon.geocentricUnit,
-  };
+  useLayoutEffect(() => {
+    sharedGeometryRef.current = {
+      orbitInstant,
+      d: snapshot.d,
+      sunGeocentricUnit: snapshot.sun.geocentricUnit,
+      moonGeocentricUnit: snapshot.moon.geocentricUnit,
+    };
+  }, [orbitInstant, snapshot.d, snapshot.moon.geocentricUnit, snapshot.sun.geocentricUnit]);
   const [failed, setFailed] = useState(false);
   const d = snapshot.d;
 
@@ -482,7 +484,7 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
           ? sharedGeometry
           : ephemerisAstronomyProvider.orbitalGeometry(orbitAt);
       }
-      const key = `${live.lat.toFixed(2)}|${live.lon.toFixed(2)}|${Math.floor(cachedOrbitalGeometry.d)}`;
+      const key = `${Math.floor(cachedOrbitalGeometry.d)}`;
       if (key !== hoopKey) {
         hoopKey = key;
         setLoop(equator, hoopPoints("equator", cachedOrbitalGeometry.d, 128), HOOP);

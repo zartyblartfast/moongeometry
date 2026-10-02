@@ -77,12 +77,12 @@ function freezeBodyOrbitalState(body: AstronomyBody, orbitInstant: number): Froz
   };
 }
 
-function horizontalFromGeocentricVector(
+function observedFromGeocentricVector(
   geocentric: Vector,
   horizontalDate: Date,
   observer: Observer,
   lonDeg: number,
-): HorizontalPosition {
+): { equatorial: { ra: number; dec: number }; horizontal: HorizontalPosition } {
   // Split-clock topocentric view: keep the body's geocentric orbital state
   // from orbitInstant, but subtract the observer's Earth-rotated position at
   // instant before converting to the local horizon. This keeps Slide-the-Moon
@@ -105,9 +105,15 @@ function horizontalFromGeocentricVector(
   const hourAngle = wrapPi((localSiderealHours - topocentricEquatorial.ra) * HOURS_TO_RAD + Math.PI) - Math.PI;
 
   return {
-    altitudeDeg: horizontal.lat,
-    azimuthDeg: wrap360(horizontal.lon),
-    hourAngle,
+    equatorial: {
+      ra: raHoursToRadians(topocentricEquatorial.ra),
+      dec: topocentricEquatorial.dec * DEG_TO_RAD,
+    },
+    horizontal: {
+      altitudeDeg: horizontal.lat,
+      azimuthDeg: wrap360(horizontal.lon),
+      hourAngle,
+    },
   };
 }
 
@@ -124,13 +130,16 @@ function phaseName(illumination: number, waxing: boolean): Phase["name"] {
 
 function bodyState(body: Body.Sun | Body.Moon, orbitDate: Date, horizontalDate: Date, observer: Observer, lonDeg: number): BodyState {
   const geocentric = GeoVector(body, orbitDate, true);
-  const equatorial = EquatorFromVector(geocentric);
-  const ra = raHoursToRadians(equatorial.ra);
-  const dec = equatorial.dec * DEG_TO_RAD;
+  const geocentricEquatorial = EquatorFromVector(geocentric);
+  const observed = observedFromGeocentricVector(geocentric, horizontalDate, observer, lonDeg);
 
   return {
-    equatorial: { ra, dec },
-    horizontal: horizontalFromGeocentricVector(geocentric, horizontalDate, observer, lonDeg),
+    geocentricEquatorialJ2000: {
+      ra: raHoursToRadians(geocentricEquatorial.ra),
+      dec: geocentricEquatorial.dec * DEG_TO_RAD,
+    },
+    observedEquatorial: observed.equatorial,
+    horizontal: observed.horizontal,
     geocentricUnit: unitFromVector(geocentric),
   };
 }
@@ -138,12 +147,12 @@ function bodyState(body: Body.Sun | Body.Moon, orbitDate: Date, horizontalDate: 
 export const ephemerisAstronomyProvider: AstronomyProvider = {
   freezeBodyOrbitalState,
   topocentricGeometricHorizontal(input) {
-    return horizontalFromGeocentricVector(
+    return observedFromGeocentricVector(
       vectorFromFrozenState(input.orbitalState, input.instant),
       new Date(input.instant),
       new Observer(input.latDeg, input.lonDeg, 0),
       input.lonDeg,
-    );
+    ).horizontal;
   },
   orbitalGeometry(orbitInstant) {
     const sunState = freezeBodyOrbitalState("sun", orbitInstant);
@@ -182,7 +191,7 @@ export const ephemerisAstronomyProvider: AstronomyProvider = {
       waxing,
       phaseName: phaseName(illumination, waxing),
     };
-    const decDeg = moon.equatorial.dec * RAD_TO_DEG;
+    const decDeg = moon.observedEquatorial.dec * RAD_TO_DEG;
 
     return {
       d: daysSinceJ2000(input.orbitInstant),

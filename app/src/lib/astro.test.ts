@@ -61,6 +61,14 @@ function assertAngleClose(actual: number, expected: number, tolerance: number): 
   assert.ok(angleDeltaDeg(actual, expected) <= tolerance, `${actual} vs ${expected}`);
 }
 
+function altitudeFromEquatorial(latDeg: number, decRad: number, hourAngleRad: number): number {
+  const latRad = latDeg * DEG;
+  return Math.asin(
+    Math.sin(latRad) * Math.sin(decRad)
+      + Math.cos(latRad) * Math.cos(decRad) * Math.cos(hourAngleRad),
+  ) / DEG;
+}
+
 function splitClockTopocentricHorizontal(
   body: Body.Sun | Body.Moon,
   orbitDate: Date,
@@ -92,14 +100,18 @@ test("simple astronomy provider matches direct snapshot observed values", () => 
   const provided = simpleAstronomyProvider.snapshot(input);
 
   assertClose(provided.d, direct.d);
-  assertClose(provided.sun.equatorial.ra, direct.sun.ra);
-  assertClose(provided.sun.equatorial.dec, direct.sun.dec);
+  assertClose(provided.sun.geocentricEquatorialJ2000.ra, direct.sun.ra);
+  assertClose(provided.sun.geocentricEquatorialJ2000.dec, direct.sun.dec);
+  assertClose(provided.sun.observedEquatorial.ra, direct.sun.ra);
+  assertClose(provided.sun.observedEquatorial.dec, direct.sun.dec);
   assertVecClose(provided.sun.geocentricUnit, direct.sun.unit);
   assertClose(provided.sun.horizontal.altitudeDeg, direct.sunHz.alt / DEG);
   assertClose(provided.sun.horizontal.azimuthDeg, ((direct.sunHz.az / DEG) % 360 + 360) % 360);
   assertClose(provided.sun.horizontal.hourAngle, direct.sunHz.ha);
-  assertClose(provided.moon.equatorial.ra, direct.moon.ra);
-  assertClose(provided.moon.equatorial.dec, direct.moon.dec);
+  assertClose(provided.moon.geocentricEquatorialJ2000.ra, direct.moon.ra);
+  assertClose(provided.moon.geocentricEquatorialJ2000.dec, direct.moon.dec);
+  assertClose(provided.moon.observedEquatorial.ra, direct.moon.ra);
+  assertClose(provided.moon.observedEquatorial.dec, direct.moon.dec);
   assertVecClose(provided.moon.geocentricUnit, direct.moon.unit);
   assertClose(provided.moon.ecliptic.longitudeDeg, ((directEcliptic.lon / DEG) % 360 + 360) % 360);
   assertClose(provided.moon.ecliptic.latitudeDeg, directEcliptic.lat / DEG);
@@ -116,6 +128,22 @@ test("simple astronomy provider matches direct snapshot observed values", () => 
   assertVecClose(provided.zenith, direct.zenith);
 });
 
+test("simple frozen orbital vectors use equatorial axes and AU-scaled lengths", () => {
+  const orbitInstant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const d = daysSinceJ2000(orbitInstant);
+  const sun = simpleAstronomyProvider.freezeBodyOrbitalState("sun", orbitInstant);
+  const moon = simpleAstronomyProvider.freezeBodyOrbitalState("moon", orbitInstant);
+  const sunUnit = sunEquatorial(d).unit;
+  const moonUnit = moonEquatorial(d).unit;
+
+  assertVecClose(sun.geocentricEquatorialVectorAu, [sunUnit[0], sunUnit[2], sunUnit[1]], 1e-12);
+  assertVecClose(
+    moon.geocentricEquatorialVectorAu,
+    [moonUnit[0], moonUnit[2], moonUnit[1]].map((value) => value * (384_400 / 149_597_870.7)),
+    1e-12,
+  );
+});
+
 test("ephemeris provider keeps schematic fields geocentric and applies observer parallax at the horizontal clock", () => {
   const input = { instant: Date.UTC(2026, 9, 1, 20, 36, 0), orbitInstant: Date.UTC(2026, 9, 2, 3, 0, 0), latDeg: 51.5, lonDeg: -0.13 };
   const orbitDate = new Date(input.orbitInstant);
@@ -125,13 +153,13 @@ test("ephemeris provider keeps schematic fields geocentric and applies observer 
 
   const geocentricMoon = GeoVector(Body.Moon, orbitDate, true);
   const geocentricMoonEquator = EquatorFromVector(geocentricMoon);
-  assertClose(actual.moon.equatorial.ra, geocentricMoonEquator.ra * 15 * DEG, 1e-12);
-  assertClose(actual.moon.equatorial.dec, geocentricMoonEquator.dec * DEG, 1e-12);
+  assertClose(actual.moon.geocentricEquatorialJ2000.ra, geocentricMoonEquator.ra * 15 * DEG, 1e-12);
+  assertClose(actual.moon.geocentricEquatorialJ2000.dec, geocentricMoonEquator.dec * DEG, 1e-12);
   assertVecClose(actual.moon.geocentricUnit, [geocentricMoon.x / geocentricMoon.Length(), geocentricMoon.z / geocentricMoon.Length(), geocentricMoon.y / geocentricMoon.Length()], 1e-12);
 
   const sameClockTopocentric = Equator(Body.Moon, orbitDate, observer, true, true);
-  assert.ok(Math.abs(actual.moon.equatorial.ra - sameClockTopocentric.ra * 15 * DEG) > 1e-4);
-  assert.ok(Math.abs(actual.moon.equatorial.dec - sameClockTopocentric.dec * DEG) > 1e-4);
+  assert.ok(Math.abs(actual.moon.geocentricEquatorialJ2000.ra - sameClockTopocentric.ra * 15 * DEG) > 1e-4);
+  assert.ok(Math.abs(actual.moon.geocentricEquatorialJ2000.dec - sameClockTopocentric.dec * DEG) > 1e-4);
 
   const expectedHorizontal = splitClockTopocentricHorizontal(Body.Moon, orbitDate, horizontalDate, observer);
   assertClose(actual.moon.horizontal.altitudeDeg, expectedHorizontal.altitudeDeg, 1e-9);
@@ -141,8 +169,8 @@ test("ephemeris provider keeps schematic fields geocentric and applies observer 
   assert.ok(Math.abs(actual.moon.horizontal.altitudeDeg - oldMixedClockHorizontal.altitude) > 0.01);
 
   const shifted = ephemerisAstronomyProvider.snapshot({ ...input, instant: input.instant + 2 * 60 * 60_000 });
-  assertClose(shifted.moon.equatorial.ra, actual.moon.equatorial.ra, 1e-12);
-  assertClose(shifted.moon.equatorial.dec, actual.moon.equatorial.dec, 1e-12);
+  assertClose(shifted.moon.geocentricEquatorialJ2000.ra, actual.moon.geocentricEquatorialJ2000.ra, 1e-12);
+  assertClose(shifted.moon.geocentricEquatorialJ2000.dec, actual.moon.geocentricEquatorialJ2000.dec, 1e-12);
   assertVecClose(shifted.moon.geocentricUnit, actual.moon.geocentricUnit, 1e-12);
   assertClose(shifted.moon.ecliptic.longitudeDeg, actual.moon.ecliptic.longitudeDeg, 1e-12);
   assertClose(shifted.moon.ecliptic.latitudeDeg, actual.moon.ecliptic.latitudeDeg, 1e-12);
@@ -150,6 +178,41 @@ test("ephemeris provider keeps schematic fields geocentric and applies observer 
 
   const shiftedOrbit = ephemerisAstronomyProvider.snapshot({ ...input, orbitInstant: input.orbitInstant + 24 * 60 * 60_000 });
   assert.ok(angleDeltaDeg(shiftedOrbit.moon.ecliptic.longitudeDeg, actual.moon.ecliptic.longitudeDeg) > 10);
+});
+
+test("displayed topocentric equatorial values reconstruct geometric altitude", () => {
+  const cases = [
+    {
+      name: "London October 1 regression",
+      input: { instant: 1790886960000, orbitInstant: 1790910000000, latDeg: 51.5, lonDeg: -0.13 },
+    },
+    {
+      name: "Quito equinox",
+      input: { instant: 1774008000000, orbitInstant: 1774008000000, latDeg: -0.18, lonDeg: -78.47 },
+    },
+    {
+      name: "near-circumpolar high Arctic Moon",
+      input: { instant: 1790886960000, orbitInstant: 1790910000000, latDeg: 78, lonDeg: 15 },
+    },
+  ] as const;
+
+  for (const { name, input } of cases) {
+    const actual = ephemerisAstronomyProvider.snapshot(input);
+    for (const body of [actual.sun, actual.moon]) {
+      const reconstructed = altitudeFromEquatorial(
+        input.latDeg,
+        body.observedEquatorial.dec,
+        body.horizontal.hourAngle,
+      );
+      assertClose(reconstructed, body.horizontal.altitudeDeg, 1e-10);
+    }
+    assertClose(
+      actual.hMeridian,
+      meridianAltitudeDeg(actual.moon.observedEquatorial.dec / DEG, input.latDeg),
+      1e-12,
+    );
+    assert.ok(Number.isFinite(actual.moon.observedEquatorial.ra), name);
+  }
 });
 
 test("frozen-body horizontal evaluation matches full ephemeris snapshots", () => {
@@ -175,15 +238,15 @@ test("ephemeris astronomy provider matches saved Astronomy Engine fixtures", () 
     const expected = fixture.expected;
 
     assertClose(actual.d, expected.d, 1e-12);
-    assertClose(actual.sun.equatorial.ra, expected.sun.raRad, 1e-10);
-    assertClose(actual.sun.equatorial.dec, expected.sun.decRad, 1e-10);
+    assertClose(actual.sun.geocentricEquatorialJ2000.ra, expected.sun.raRad, 1e-10);
+    assertClose(actual.sun.geocentricEquatorialJ2000.dec, expected.sun.decRad, 1e-10);
     assertClose(actual.sun.horizontal.altitudeDeg, expected.sun.altitudeDeg, 1e-7);
     assertAngleClose(actual.sun.horizontal.azimuthDeg, expected.sun.azimuthDeg, 1e-7);
     assertClose(actual.sun.horizontal.hourAngle, expected.sun.hourAngleRad, 1e-10);
     assertVecClose(actual.sun.geocentricUnit, expected.sun.geocentricUnit, 1e-10);
 
-    assertClose(actual.moon.equatorial.ra, expected.moon.raRad, 1e-10);
-    assertClose(actual.moon.equatorial.dec, expected.moon.decRad, 1e-10);
+    assertClose(actual.moon.geocentricEquatorialJ2000.ra, expected.moon.raRad, 1e-10);
+    assertClose(actual.moon.geocentricEquatorialJ2000.dec, expected.moon.decRad, 1e-10);
     assertClose(actual.moon.horizontal.altitudeDeg, expected.moon.altitudeDeg, 1e-7);
     assertAngleClose(actual.moon.horizontal.azimuthDeg, expected.moon.azimuthDeg, 1e-7);
     assertClose(actual.moon.horizontal.hourAngle, expected.moon.hourAngleRad, 1e-10);

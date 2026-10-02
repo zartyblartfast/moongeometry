@@ -310,7 +310,7 @@ export function MoonApp() {
             <Stat k="Set" v={setValue} />
           </dl>
           <p className="text-sm text-fg">
-            h max = 90° − |{lat.toFixed(1)}° − {deg1(sky.decDeg)}|
+            At this declination: h at meridian = 90° − |{lat.toFixed(1)}° − {deg1(sky.decDeg)}|
           </p>
         </section>
       </div>
