@@ -19,8 +19,54 @@ import {
   sunEquatorial,
   utcOffsetPhrase,
 } from "./astro.ts";
+import { simpleAstronomyProvider } from "./astronomy/simple-provider.ts";
 
 const DEG = Math.PI / 180;
+const CLOSE = 1e-12;
+
+function assertClose(actual: number, expected: number, tolerance = CLOSE): void {
+  assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} vs ${expected}`);
+}
+
+function assertVecClose(actual: readonly number[], expected: readonly number[], tolerance = CLOSE): void {
+  assert.equal(actual.length, expected.length);
+  for (let i = 0; i < actual.length; i++) {
+    assertClose(actual[i]!, expected[i]!, tolerance);
+  }
+}
+
+test("simple astronomy provider matches direct snapshot observed values", () => {
+  const input = {
+    instant: Date.UTC(2026, 9, 1, 20, 36, 0),
+    orbitInstant: Date.UTC(2026, 9, 2, 3, 0, 0),
+    latDeg: 51.5,
+    lonDeg: -0.13,
+  };
+  const direct = snapshot(input.instant, input.latDeg, input.lonDeg, input.orbitInstant);
+  const provided = simpleAstronomyProvider.snapshot(input);
+
+  assertClose(provided.d, direct.d);
+  assertClose(provided.sun.equatorial.ra, direct.sun.ra);
+  assertClose(provided.sun.equatorial.dec, direct.sun.dec);
+  assertVecClose(provided.sun.geocentricUnit, direct.sun.unit);
+  assertClose(provided.sun.horizontal.altitudeDeg, direct.sunHz.alt / DEG);
+  assertClose(provided.sun.horizontal.azimuthDeg, ((direct.sunHz.az / DEG) % 360 + 360) % 360);
+  assertClose(provided.sun.horizontal.hourAngle, direct.sunHz.ha);
+  assertClose(provided.moon.equatorial.ra, direct.moon.ra);
+  assertClose(provided.moon.equatorial.dec, direct.moon.dec);
+  assertVecClose(provided.moon.geocentricUnit, direct.moon.unit);
+  assertClose(provided.moon.horizontal.altitudeDeg, direct.moonHz.alt / DEG);
+  assertClose(provided.moon.horizontal.azimuthDeg, ((direct.moonHz.az / DEG) % 360 + 360) % 360);
+  assertClose(provided.moon.horizontal.hourAngle, direct.moonHz.ha);
+  assertClose(provided.moon.illumination, direct.phase.illumination);
+  assertClose(provided.moon.elongationDeg, direct.phase.elongationDeg);
+  assert.equal(provided.moon.waxing, direct.phase.waxing);
+  assert.equal(provided.moon.phaseName, direct.phase.name);
+  assertClose(provided.decDeg, direct.decDeg);
+  assertClose(provided.hMeridian, direct.hMeridian);
+  assertClose(provided.hFormula, direct.hFormula);
+  assertVecClose(provided.zenith, direct.zenith);
+});
 
 test("June solstice Sun stands near +23.4°", () => {
   const d = daysSinceJ2000(Date.UTC(2000, 5, 21, 12, 0, 0));
