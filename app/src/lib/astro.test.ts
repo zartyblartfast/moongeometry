@@ -332,31 +332,108 @@ test("observed view shares one full snapshot and freezes each body once", () => 
   assert.equal(frozenBodyCalls, 2);
 });
 
-test("observed rise and set are interpolated geometric zero-altitude crossings", () => {
+function syntheticHorizontalProvider(
+  altitudeDegAt: (instant: number) => number,
+): { provider: AstronomyProvider; evaluations: () => number } {
+  let evaluationCount = 0;
+  return {
+    evaluations: () => evaluationCount,
+    provider: {
+      ...simpleAstronomyProvider,
+      topocentricGeometricHorizontal(input) {
+        evaluationCount += 1;
+        const base = simpleAstronomyProvider.topocentricGeometricHorizontal(input);
+        return {
+          ...base,
+          altitudeDeg: altitudeDegAt(input.instant),
+          azimuthDeg: ((input.instant / 60_000) % 360 + 360) % 360,
+        };
+      },
+    },
+  };
+}
+
+test("observed rise and set refine off-grid geometric zero-altitude crossings", () => {
   const orbitInstant = Date.UTC(2026, 9, 2, 3, 0, 0);
-  const instant = 3 * 60 * 60_000;
+  const instant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const siderealDayMs = 86_400_000 * (360 / 360.98564736629);
+  const phaseOrigin = instant + 137_000;
+  const omega = (Math.PI * 2) / siderealDayMs;
+  const expectedRise = phaseOrigin - (Math.acos(0.5) / omega);
+  const expectedSet = phaseOrigin + (Math.acos(0.5) / omega);
   const seenOrbitInstants = new Set<number>();
+  const synthetic = syntheticHorizontalProvider((t) => Math.cos((t - phaseOrigin) * omega) - 0.5);
   const provider: AstronomyProvider = {
-    ...simpleAstronomyProvider,
+    ...synthetic.provider,
     freezeBodyOrbitalState(body, frozenOrbitInstant) {
       seenOrbitInstants.add(frozenOrbitInstant);
       return simpleAstronomyProvider.freezeBodyOrbitalState(body, frozenOrbitInstant);
     },
-    topocentricGeometricHorizontal(input) {
-      const base = simpleAstronomyProvider.topocentricGeometricHorizontal(input);
-      const phase = (input.instant / (12 * 60 * 60_000)) * Math.PI * 2;
-      return {
-        ...base,
-        altitudeDeg: 30 * Math.sin(phase),
-        azimuthDeg: ((input.instant / 60_000) % 360 + 360) % 360,
-      };
-    },
   };
 
   const path = observedSkyPath(instant, 0, 0, "moon", orbitInstant, provider);
-  assertClose(path.rise ?? Number.NaN, 0, 1e-6);
-  assertClose(path.set ?? Number.NaN, 6 * 60 * 60_000, 1e-6);
+  assertClose(path.rise ?? Number.NaN, expectedRise, 10);
+  assertClose(path.set ?? Number.NaN, expectedSet, 10);
+  assert.notEqual((path.rise ?? 0) % (5 * 60_000), 0);
+  assert.notEqual((path.set ?? 0) % (5 * 60_000), 0);
   assert.deepEqual([...seenOrbitInstants], [orbitInstant]);
+});
+
+test("observed events find a very brief rise between coarse samples near a tangent maximum", () => {
+  const instant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const siderealDayMs = 86_400_000 * (360 / 360.98564736629);
+  const omega = (Math.PI * 2) / siderealDayMs;
+  const peak = instant + 2.5 * 60_000;
+  const halfWidth = 45_000;
+  const threshold = Math.cos(omega * halfWidth);
+  const synthetic = syntheticHorizontalProvider((t) => Math.cos(omega * (t - peak)) - threshold);
+
+  const path = observedSkyPath(instant, 80, 0, "moon", instant, synthetic.provider);
+
+  assert.equal(path.alwaysDown, false);
+  assert.equal(path.alwaysUp, false);
+  assertClose(path.rise ?? Number.NaN, peak - halfWidth, 10);
+  assertClose(path.set ?? Number.NaN, peak + halfWidth, 10);
+  assert.ok(synthetic.evaluations() < 700, `used ${synthetic.evaluations()} narrow horizontal evaluations`);
+});
+
+test("observed events find a very brief dip between coarse samples near a tangent minimum", () => {
+  const instant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const siderealDayMs = 86_400_000 * (360 / 360.98564736629);
+  const omega = (Math.PI * 2) / siderealDayMs;
+  const trough = instant + 2.5 * 60_000;
+  const halfWidth = 45_000;
+  const threshold = Math.cos(omega * halfWidth);
+  const synthetic = syntheticHorizontalProvider((t) => threshold - Math.cos(omega * (t - trough)));
+
+  const path = observedSkyPath(instant, 80, 0, "moon", instant, synthetic.provider);
+
+  assert.equal(path.alwaysDown, false);
+  assert.equal(path.alwaysUp, false);
+  assertClose(path.rise ?? Number.NaN, trough + halfWidth - siderealDayMs, 10);
+  assertClose(path.set ?? Number.NaN, trough - halfWidth, 10);
+});
+
+test("observed events classify strict and tangent circumpolar tracks without false crossings", () => {
+  const instant = Date.UTC(2026, 9, 2, 3, 0, 0);
+  const siderealDayMs = 86_400_000 * (360 / 360.98564736629);
+  const omega = (Math.PI * 2) / siderealDayMs;
+  const center = instant + 2.5 * 60_000;
+  const cases = [
+    { name: "always up", altitude: (t: number) => 1 + 0.5 * Math.cos(omega * (t - center)), up: true, down: false },
+    { name: "always down", altitude: (t: number) => -1 + 0.5 * Math.cos(omega * (t - center)), up: false, down: true },
+    { name: "tangent minimum", altitude: (t: number) => 1 - Math.cos(omega * (t - center)), up: true, down: false },
+    { name: "tangent maximum", altitude: (t: number) => Math.cos(omega * (t - center)) - 1, up: false, down: true },
+  ];
+
+  for (const scenario of cases) {
+    const synthetic = syntheticHorizontalProvider(scenario.altitude);
+    const path = observedSkyPath(instant, 80, 0, "moon", instant, synthetic.provider);
+    assert.equal(path.alwaysUp, scenario.up, scenario.name);
+    assert.equal(path.alwaysDown, scenario.down, scenario.name);
+    assert.equal(path.rise, null, scenario.name);
+    assert.equal(path.set, null, scenario.name);
+  }
 });
 
 test("observed ephemeris sky path uses orbitInstant for smooth date-step drift without moving the clock", () => {
