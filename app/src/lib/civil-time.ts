@@ -8,6 +8,35 @@ export type CivilTimeInfo = {
   utcOffsetLabel: string;
 };
 
+type TimeZoneLookup = (latDeg: number, lonDeg: number) => string;
+
+let timeZoneLookupPromise: Promise<TimeZoneLookup> | null = null;
+
+function loadTimeZoneLookup(): Promise<TimeZoneLookup> {
+  timeZoneLookupPromise ??= import("@photostructure/tz-lookup").then((module) => module.default);
+  return timeZoneLookupPromise;
+}
+
+export async function lookupTimeZone(latDeg: number, lonDeg: number): Promise<string | null> {
+  if (
+    !Number.isFinite(latDeg) ||
+    !Number.isFinite(lonDeg) ||
+    latDeg < -90 ||
+    latDeg > 90 ||
+    lonDeg < -180 ||
+    lonDeg > 180
+  ) {
+    return null;
+  }
+
+  try {
+    const lookup = await loadTimeZoneLookup();
+    return lookup(latDeg, lonDeg);
+  } catch {
+    return null;
+  }
+}
+
 function partValue(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string | null {
   return parts.find((part) => part.type === type)?.value ?? null;
 }

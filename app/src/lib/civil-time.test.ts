@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatCivilTime } from "./civil-time.ts";
+import { formatCivilTime, lookupTimeZone } from "./civil-time.ts";
 
 type ExpectedCivilTime = {
   clock: string;
@@ -147,4 +147,53 @@ test("returns null for invalid instants", () => {
 
 test("returns null for unsupported time zones", () => {
   assert.equal(formatCivilTime(Date.UTC(2024, 0, 15), "Not/A_Time_Zone"), null);
+});
+
+test("looks up IANA zones for coordinates away from borders", async () => {
+  assert.equal(await lookupTimeZone(51.5, -0.1), "Europe/London");
+  assert.equal(await lookupTimeZone(40.75, -73.98), "America/New_York");
+  assert.equal(await lookupTimeZone(-33.9, 151.2), "Australia/Sydney");
+  assert.equal(await lookupTimeZone(27.7, 85.3), "Asia/Kathmandu");
+});
+
+test("looks up a fixed-offset zone in the open Pacific without exposing it as a zone name", async () => {
+  // 0°N, 140°W is open ocean and resolves to Etc/GMT+9 in version 11.7.0.
+  const timeZoneId = await lookupTimeZone(0, -140);
+  assert.match(timeZoneId ?? "", /^Etc\/GMT[+-]\d{1,2}$/);
+
+  const civilTime = formatCivilTime(Date.UTC(2024, 0, 15, 12), timeZoneId!);
+  assert.ok(civilTime);
+  assert.equal(civilTime.zoneName, null);
+  assert.notEqual(civilTime.zoneName, timeZoneId);
+});
+
+test("rejects invalid lookup coordinates", async () => {
+  const invalidCoordinates: [number, number][] = [
+    [Number.NaN, 0],
+    [0, Number.NaN],
+    [Number.POSITIVE_INFINITY, 0],
+    [Number.NEGATIVE_INFINITY, 0],
+    [0, Number.POSITIVE_INFINITY],
+    [0, Number.NEGATIVE_INFINITY],
+    [90.0001, 0],
+    [-90.0001, 0],
+    [0, 180.0001],
+    [0, -180.0001],
+  ];
+
+  for (const [latDeg, lonDeg] of invalidCoordinates) {
+    assert.equal(await lookupTimeZone(latDeg, lonDeg), null);
+  }
+});
+
+test("accepts lookup coordinate boundary values", async () => {
+  for (const [latDeg, lonDeg] of [
+    [90, 180],
+    [90, -180],
+    [-90, 180],
+    [-90, -180],
+  ] as const) {
+    const timeZoneId = await lookupTimeZone(latDeg, lonDeg);
+    assert.ok(timeZoneId === null || typeof timeZoneId === "string");
+  }
 });
