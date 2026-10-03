@@ -196,7 +196,7 @@ export function MoonApp() {
 
   return (
     <>
-    <main className="mx-auto flex min-h-screen w-full max-w-[120rem] flex-col gap-2 px-4 py-2 lg:px-5 lg:py-2.5">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-2 px-4 py-2 lg:px-5 lg:py-2.5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-medium tracking-widest text-gold uppercase">Angles true · distances fiction</p>
