@@ -101,7 +101,7 @@ export function PlaceSearch({ lat, lon, onSelect }: PlaceSearchProps) {
           {loading ? "Searching" : "Search"}
         </button>
       </div>
-      <span className="text-xs text-muted">Sets latitude/longitude only.</span>
+      <span className="text-xs text-muted">Sets latitude/longitude; civil time is derived from the selected position.</span>
       {(results.length > 0 || message) && (
         <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border border-line bg-bg/95 p-2 text-xs shadow-xl">
           {message ? <p className="px-2 py-1 text-muted">{message}</p> : null}

@@ -13,7 +13,9 @@ import {
   timeInputValue,
 } from "@/lib/astro";
 import { observedViewState } from "@/lib/astronomy/observed";
+import { composeCivilTimeLine } from "@/lib/civil-time-line";
 import { useMoon, type Play, type Snap } from "@/lib/store";
+import { useCivilTime } from "@/lib/use-civil-time";
 import { MoonPhase } from "./moon-phase";
 import { PlaceSearch } from "./place-search";
 import { SkyChart } from "./sky-chart";
@@ -106,6 +108,7 @@ export function MoonApp() {
   const [explainOpen, setExplainOpen] = useState(false);
   const [explainTab, setExplainTab] = useState<ExplainTab>("summary");
   const [orbitInfoOpen, setOrbitInfoOpen] = useState(false);
+  const civilTime = useCivilTime(instant, lat, lon);
 
   useEffect(() => {
     const urlState = readUrlState();
@@ -203,7 +206,7 @@ export function MoonApp() {
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
         <section className="flex flex-col overflow-hidden rounded-card bg-surface">
-          <div className="relative h-80 min-h-72 lg:h-[25.5rem]">
+          <div className="relative h-80 min-h-72 lg:h-[24.25rem]">
             <SpaceScene snapshot={sky} orbitInstant={orbit} />
             <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1 text-xs">
               <span className="mb-1 text-sm font-semibold text-fg">Orbital geometry — the Moon's tilted orbit around Earth</span>
@@ -281,7 +284,7 @@ export function MoonApp() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-2.5 rounded-card bg-surface p-3">
+        <section className="flex flex-col gap-2 rounded-card bg-surface p-3">
           <div className="flex items-start gap-3">
             <MoonPhase illumination={sky.moon.illumination} waxing={sky.moon.waxing} latitude={lat} size={44} />
             <div className="min-w-0 flex-1">
@@ -297,7 +300,7 @@ export function MoonApp() {
               Explain
             </button>
           </div>
-          <div className="h-52 sm:h-56">
+          <div className="h-52">
             <SkyChart snapshot={sky} moonPath={observed.moonPath} sunPath={observed.sunPath} />
           </div>
           <p className="text-xs text-muted">Center is the zenith over the selected latitude/longitude. Gold path/dot = Sun; silver path/dot = Moon; small tick = top of Moon path.</p>
@@ -345,6 +348,16 @@ export function MoonApp() {
           />
           <span className="text-xs text-muted">At this longitude. Not a time zone or a watch.</span>
           <span className="text-xs text-muted">{formatUtcMomentLine(instant, lon)}</span>
+          <span
+            className="text-xs text-muted"
+            title={civilTime.status === "ready" ? `IANA zone: ${civilTime.value.timeZoneId}` : undefined}
+          >
+            {civilTime.status === "loading"
+              ? "Civil time: calculating…"
+              : civilTime.status === "unavailable"
+                ? "Civil time: unavailable for these coordinates."
+                : composeCivilTimeLine(civilTime.value, localParts(instant, lon).y)}
+          </span>
         </label>
         <Slider label={`Latitude ${lat.toFixed(1)}°`} min={-90} max={90} step={0.1} value={lat} onChange={setLat} />
         <Slider label={`Longitude ${lon.toFixed(1)}°`} min={-180} max={180} step={0.1} value={lon} onChange={setLon} />
@@ -537,7 +550,8 @@ function ExplainPanel({
                 <li>Object sizes, distances, orbit-hoop radius, sunlight-ray length, continents and overall scale are deliberately unrealistic.</li>
                 <li>Geocentric ephemeris directions set the orrery's Sun and Moon angles, but its visual geometry is simplified.</li>
                 <li>Libration and detailed lunar surface or Cassini-state orientation are outside the current scope.</li>
-                <li>The editable clock is mean solar time at the selected longitude; UTC is a reference, not a second editable clock.</li>
+                <li>The editable clock is mean solar time at the selected longitude; UTC and civil time are read-only references.</li>
+                <li>Civil time is derived from an approximate coordinate-to-IANA-zone lookup and the browser's time-zone rules. Verify the named zone when legal, travel, scheduling or operational precision matters, especially near time-zone borders.</li>
               </ul>
               <p>
                 Use a published almanac or navigation service when its conventions and precision matter.
