@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ephemerisAstronomyProvider } from "./astronomy/ephemeris-provider.ts";
 import {
+  EARTH_DISPLAY_Z_SCALE,
   EARTH_MESH_Y_ROTATION_SIGN,
   angularSeparationDeg,
   earthMapPixel,
@@ -51,7 +52,24 @@ test("Earth mesh rotation has one explicit sign after horizontal texture correct
   assertClose(earthMeshYRotation(-1.25), 1.25);
 });
 
-test("earthSurfaceUnit aligns corrected map geography with observer zenith", () => {
+test("displayed Earth keeps east to the right when north is up", () => {
+  assert.equal(EARTH_DISPLAY_Z_SCALE, -1);
+  const outward = earthSurfaceUnit(0, 0, 0);
+  const eastPoint = earthSurfaceUnit(0, 0.001, 0);
+  const northPoint = earthSurfaceUnit(0.001, 0, 0);
+  const east = eastPoint.map((value, index) => value - outward[index]!) as [number, number, number];
+  const north = northPoint.map((value, index) => value - outward[index]!) as [number, number, number];
+  const eastCrossNorth = [
+    east[1] * north[2] - east[2] * north[1],
+    east[2] * north[0] - east[0] * north[2],
+    east[0] * north[1] - east[1] * north[0],
+  ];
+  const handedness = eastCrossNorth.reduce((sum, value, index) => sum + value * outward[index]!, 0);
+
+  assert.ok(handedness > 0, `east × north must point outward, got ${handedness}`);
+});
+
+test("earthSurfaceUnit aligns displayed map geography with reflected observer zenith", () => {
   const instants = [Date.UTC(2024, 0, 15, 3, 20), Date.UTC(2026, 9, 3, 18, 45)];
   const locations = [
     { name: "Greenwich equator", lat: 0, lon: 0 },
@@ -67,7 +85,8 @@ test("earthSurfaceUnit aligns corrected map geography with observer zenith", () 
 
     for (const location of locations) {
       const actual = earthSurfaceUnit(location.lat, location.lon, greenwichSiderealAngle);
-      const expected = ephemerisAstronomyProvider.observerZenith(instant, location.lat, location.lon);
+      const observer = ephemerisAstronomyProvider.observerZenith(instant, location.lat, location.lon);
+      const expected: [number, number, number] = [observer[0], observer[1], -observer[2]];
       const separation = angularSeparationDeg(actual, expected);
       assert.ok(separation < 0.1, `${location.name} at ${new Date(instant).toISOString()}: ${separation}°`);
     }

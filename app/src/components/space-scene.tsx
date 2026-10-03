@@ -5,7 +5,7 @@ import earthLandUrl from "@/assets/earth-land.png";
 import { eclipticPole, hoopPoints, sunBeam, type Vec3 } from "@/lib/astro";
 import { ephemerisAstronomyProvider } from "@/lib/astronomy/ephemeris-provider";
 import type { AstronomyProviderSnapshot, OrbitalGeometryState } from "@/lib/astronomy/provider";
-import { earthMeshYRotation, observerOverlayScaleForCameraRadius } from "@/lib/earth-map";
+import { EARTH_DISPLAY_Z_SCALE, earthMeshYRotation, observerOverlayScaleForCameraRadius } from "@/lib/earth-map";
 import { palette } from "@/lib/palette";
 import { useMoon, type Snap } from "@/lib/store";
 
@@ -384,6 +384,10 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     renderer.setClearColor(palette.bg, 1);
 
     const scene = new THREE.Scene();
+    // Equatorial vectors use +Z for increasing right ascension. Reflecting the
+    // rendered model keeps north up while making east appear on the familiar
+    // right-hand side of the globe; all model geometry stays mutually aligned.
+    scene.scale.z = EARTH_DISPLAY_Z_SCALE;
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 40);
     scene.add(new THREE.AmbientLight(0xffffff, 0.3));
     const sunLight = new THREE.DirectionalLight(0xfff4dd, 1.15);
@@ -548,7 +552,10 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       const moonPos: Vec3 = [moonUnit[0] * HOOP, moonUnit[1] * HOOP, moonUnit[2] * HOOP];
       const greenwich = ephemerisAstronomyProvider.observerZenith(rotation, 0, 0);
       earth.rotation.y = earthMeshYRotation(Math.atan2(greenwich[2], greenwich[0]));
-      (earthMaterial.uniforms.sunDir.value as THREE.Vector3).set(sunUnit[0], sunUnit[1], sunUnit[2]).normalize();
+      // Shader uniforms are world-space and do not inherit scene.scale.
+      (earthMaterial.uniforms.sunDir.value as THREE.Vector3)
+        .set(sunUnit[0], sunUnit[1], EARTH_DISPLAY_Z_SCALE * sunUnit[2])
+        .normalize();
       moon.position.set(moonPos[0], moonPos[1], moonPos[2]);
       const away = new THREE.Vector3(-sunUnit[0], -sunUnit[1], -sunUnit[2]).normalize();
       dark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), away);

@@ -1,7 +1,8 @@
 # Earth Coastline Map Verification Record
 
-**Date:** October 3, 2026  
-**Implementation HEAD:** `e74bfd7c6d2a3ea45e8e8f1a327467fb213fe3a7`
+**Date:** October 3, 2026
+**Implementation baseline:** `e74bfd7c6d2a3ea45e8e8f1a327467fb213fe3a7`
+**Post-review correction:** working tree after user visual review on October 3, 2026
 
 This record captures the automated and manual acceptance evidence for `docs/plans/2026-10-03-earth-coastline-map.md`.
 
@@ -64,16 +65,16 @@ git diff --check
 
 Results:
 
-- Earth-map tests: 5 passed.
+- Earth-map tests: 6 passed.
 - Astronomy tests: 25 passed.
-- Full suite: 85 passed, 0 failed.
+- Full suite: 86 passed, 0 failed.
 - Production build emitted the bundled coastline PNG.
 - No browser/runtime Natural Earth download was introduced.
 - The existing non-blocking bundle-size, module-directive, and child-process deprecation warnings remain.
 
 ## Automated coordinate contract
 
-`earth-map.test.ts` verifies that the transformed painted-Earth coordinate agrees with `ephemerisAstronomyProvider.observerZenith()` to within `0.1°` for:
+`earth-map.test.ts` verifies that the transformed painted-Earth coordinate agrees with the displayed (Z-reflected) `ephemerisAstronomyProvider.observerZenith()` to within `0.1°` for:
 
 - Greenwich equator;
 - London;
@@ -82,14 +83,14 @@ Results:
 - Tromsø as a latitude above 60°;
 - two instants separated by more than one year.
 
-The test includes Sydney specifically so an east/west mirror fails.
+The suite also checks the displayed geographic basis directly: with north up, `east × north` must point outward. This test failed against the first implementation and now prevents the render-level horizontal mirror reported during user review.
 
 The same suite verifies:
 
 - half-open `[-180°, +180°)` longitude wrapping;
 - both sides of the antimeridian;
 - north and south poles;
-- explicit Earth Y-rotation sign;
+- explicit Earth Y-rotation and display-reflection signs;
 - independent close-zoom scaling for the observer figure and horizon plate;
 - scale clamping below radius 1.5 and above radius 2.25.
 
@@ -97,11 +98,24 @@ The same suite verifies:
 
 Checks were made in fresh browser contexts at `1280×800` and `1440×900`. Fresh contexts were used after an older Vite HMR context retained a stale split-module error; direct HTTP checks and fresh contexts loaded the route and split module with HTTP 200 and no captured page errors.
 
+### Orientation correction
+
+The first verification pass tested internal coordinate alignment but did not test the handedness of the final camera-visible scene. Because astronomy vectors use +Z for increasing right ascension while Three.js uses +Y as north, the internally aligned globe appeared horizontally mirrored to the viewer.
+
+The correction reflects the complete 3D model on Z, keeping the Earth, observer, Moon, Sun, and hoops in one frame while restoring familiar right-handed geography. The world-space shader Sun direction receives the same reflection explicitly.
+
+Fresh close-view checks after the correction confirmed:
+
+- North America has Baja and the Pacific coast on the left, with Florida and the Caribbean on the right;
+- the Asia view proceeds west-to-east from Arabia through India to Southeast Asia;
+- the day/night terminator still follows the reflected Sun direction;
+- no WebGL or page error was captured.
+
 ### Locations
 
 - **London — 51.5° N, 0°:** Britain and northwestern Europe rendered with detailed coastline. At minimum zoom the observer overlay remained compact and neighbouring coastline remained visible.
-- **Sydney — 33.9° S, 151° E:** Australia rendered in the correct east/west orientation and the observer appeared on the east-coast side. This visually confirmed the handedness correction.
-- **Los Angeles — 34.05° N, 118.25° W:** the observer appeared on western North America, providing an additional east/west reflection check.
+- **Sydney — 33.9° S, 151° E:** included in the automated reflected-coordinate alignment contract and used for the corrected Asia-Pacific browser view.
+- **Los Angeles — 34.05° N, 118.25° W:** included as the automated western-longitude counterpart.
 - **Antimeridian — 179.4° E:** minimum zoom showed no visible texture seam or ocean-spanning artifact.
 - **Tromsø — 69.65° N, 18.96° E:** the high-latitude coastline and observer placement rendered without polar inversion.
 
@@ -140,4 +154,4 @@ The following remained unchanged:
 
 ## Conclusion
 
-All implementation requirements and acceptance checks in the Earth coastline specification have been exercised. The generated asset is reproducible, the painted Earth and observer share the same coordinate frame, close zoom preserves geographic readability, and the fallback remains complete and safe.
+All implementation requirements and acceptance checks in the Earth coastline specification have been exercised. The generated asset is reproducible, the painted Earth and observer share the same reflected display frame, recognizable coastlines have familiar east/west handedness, close zoom preserves geographic readability, and the fallback remains complete and safe.

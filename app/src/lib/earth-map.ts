@@ -7,6 +7,9 @@ const FULL_SCALE_CAMERA_RADIUS = 2.25;
 const MIN_FIGURE_SCALE = 0.012 / 0.045;
 const MIN_PLATE_SCALE = 0.045 / 0.19;
 
+/** Reflects astronomy's +Z RA axis into a familiar right-handed Earth display. */
+export const EARTH_DISPLAY_Z_SCALE = -1;
+
 export type EarthMapPixel = {
   x: number;
   y: number;
@@ -50,13 +53,13 @@ export function earthMeshYRotation(greenwichSiderealAngle: number): number {
 }
 
 /**
- * Returns the geographic surface unit vector in the app world frame.
+ * Returns the geographic surface unit vector as displayed by the Three scene.
  *
  * Inputs: latitude/longitude in degrees and Greenwich sidereal angle in
- * radians. Axes are +X at right ascension 0, +Y north, and +Z toward increasing
- * right ascension. The result models the runtime horizontal image correction,
- * then applies earthMeshYRotation(), matching the transform required by the
- * Three.js Earth mesh.
+ * radians. Astronomy uses +Z toward increasing right ascension, which is a
+ * mirrored presentation when +Y is north. The rendered scene reflects Z so
+ * recognizable geography remains right-handed: east × north points outward.
+ * The result includes that final display reflection.
  */
 export function earthSurfaceUnit(latDeg: number, lonDeg: number, greenwichSiderealAngle: number): Vec3 {
   const lat = latDeg * DEG_TO_RAD;
@@ -71,12 +74,13 @@ export function earthSurfaceUnit(latDeg: number, lonDeg: number, greenwichSidere
   const cosRotation = Math.cos(rotation);
   const sinRotation = Math.sin(rotation);
 
-  // Three.js right-handed Y-axis rotation.
-  return [
+  // Three.js right-handed Y-axis rotation, followed by the scene's Z reflection.
+  const world: Vec3 = [
     cosRotation * localX + sinRotation * localZ,
     localY,
     -sinRotation * localX + cosRotation * localZ,
   ];
+  return [world[0], world[1], EARTH_DISPLAY_Z_SCALE * world[2]];
 }
 
 /** Returns the smaller angular separation between two vectors, in degrees. */
