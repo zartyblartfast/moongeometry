@@ -78,10 +78,36 @@ test("stale lookup completion is ignored", () => {
   assert.deepEqual(selectCivilTimeState(staleCompletion, winter), { status: "loading" });
 });
 
-test("latest lookup completion replaces the zone", () => {
+test("stale lookup failure is ignored", () => {
   let state = createCivilTimeControllerState();
   state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 1 });
   state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 2 });
+
+  const staleFailure = reduceCivilTimeController(state, {
+    type: "lookup-failed",
+    requestId: 1,
+  });
+
+  assert.equal(staleFailure, state);
+  assert.deepEqual(selectCivilTimeState(staleFailure, winter), { status: "loading" });
+});
+
+test("latest lookup completion replaces the retained zone", () => {
+  let state = createCivilTimeControllerState();
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 1 });
+  state = reduceCivilTimeController(state, {
+    type: "lookup-succeeded",
+    requestId: 1,
+    timeZoneId: "Europe/London",
+  });
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 2 });
+
+  const refreshing = selectCivilTimeState(state, winter);
+  assert.equal(refreshing.status, "ready");
+  if (refreshing.status !== "ready") return;
+  assert.equal(refreshing.value.timeZoneId, "Europe/London");
+  assert.equal(refreshing.refreshingCoordinates, true);
+
   state = reduceCivilTimeController(state, {
     type: "lookup-succeeded",
     requestId: 2,
@@ -93,6 +119,43 @@ test("latest lookup completion replaces the zone", () => {
   if (selected.status !== "ready") return;
   assert.equal(selected.value.clock, "07:34");
   assert.equal(selected.value.timeZoneId, "America/New_York");
+  assert.equal(selected.refreshingCoordinates, false);
+});
+
+test("latest lookup completion formats the latest instant", () => {
+  let state = createCivilTimeControllerState();
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 1 });
+  state = reduceCivilTimeController(state, {
+    type: "lookup-succeeded",
+    requestId: 1,
+    timeZoneId: "Europe/London",
+  });
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 2 });
+
+  const atRequestStart = selectCivilTimeState(state, winter);
+  assert.equal(atRequestStart.status, "ready");
+  if (atRequestStart.status !== "ready") return;
+  assert.equal(atRequestStart.value.clock, "12:34");
+  assert.equal(atRequestStart.refreshingCoordinates, true);
+
+  const whilePending = selectCivilTimeState(state, summer);
+  assert.equal(whilePending.status, "ready");
+  if (whilePending.status !== "ready") return;
+  assert.equal(whilePending.value.clock, "13:34");
+  assert.equal(whilePending.refreshingCoordinates, true);
+
+  state = reduceCivilTimeController(state, {
+    type: "lookup-succeeded",
+    requestId: 2,
+    timeZoneId: "America/New_York",
+  });
+
+  const selected = selectCivilTimeState(state, summer);
+  assert.equal(selected.status, "ready");
+  if (selected.status !== "ready") return;
+  assert.equal(selected.value.timeZoneId, "America/New_York");
+  assert.equal(selected.value.clock, "08:34");
+  assert.equal(selected.value.utcOffsetMinutes, -240);
   assert.equal(selected.refreshingCoordinates, false);
 });
 
