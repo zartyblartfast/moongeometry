@@ -187,13 +187,14 @@ test("rejects invalid lookup coordinates", async () => {
 });
 
 test("accepts lookup coordinate boundary values", async () => {
-  for (const [latDeg, lonDeg] of [
-    [90, 180],
-    [90, -180],
-    [-90, 180],
-    [-90, -180],
-  ] as const) {
-    const timeZoneId = await lookupTimeZone(latDeg, lonDeg);
-    assert.ok(timeZoneId === null || typeof timeZoneId === "string");
+  const boundaryCoordinates = [
+    [90, 180, "Etc/GMT"],
+    [90, -180, "Etc/GMT"],
+    [-90, 180, "Antarctica/McMurdo"],
+    [-90, -180, "Antarctica/McMurdo"],
+  ] as const;
+
+  for (const [latDeg, lonDeg, expectedTimeZoneId] of boundaryCoordinates) {
+    assert.equal(await lookupTimeZone(latDeg, lonDeg), expectedTimeZoneId);
   }
 });
