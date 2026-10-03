@@ -1,9 +1,9 @@
 # Civil Time Final Verification Record
 
-**Date:** October 3, 2026  
-**Specification:** `docs/plans/2026-10-03-civil-time-display.md`  
-**Civil-time implementation range:** `25e168a969fcb86f4f31e5d6211021eebc374001..37369bba20089b44b6c1ae243c6e10cfee935fc1` (inclusive; parent baseline `e8f34d06ef1e4049ead046955901ce606514e8f7`)  
-**Complete unpushed verification range:** `2d8be29ba6d3a3d51da022b16bb9e1071bb52b9d..37369bba20089b44b6c1ae243c6e10cfee935fc1`  
+**Date:** October 3, 2026
+**Specification:** `docs/plans/2026-10-03-civil-time-display.md`
+**Civil-time implementation range:** `25e168a969fcb86f4f31e5d6211021eebc374001..37369bba20089b44b6c1ae243c6e10cfee935fc1` (inclusive; parent baseline `e8f34d06ef1e4049ead046955901ce606514e8f7`)
+**Complete unpushed verification range:** `2d8be29ba6d3a3d51da022b16bb9e1071bb52b9d..37369bba20089b44b6c1ae243c6e10cfee935fc1`
 **Implementation HEAD verified:** `37369bba20089b44b6c1ae243c6e10cfee935fc1` (`feat: show local civil time`)
 
 ## Outcome and limitations
