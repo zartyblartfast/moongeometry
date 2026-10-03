@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import {
   formatCivilTime,
   lookupTimeZone,
@@ -83,26 +83,62 @@ export function selectCivilTimeState(
   };
 }
 
-export function useCivilTime(instant: number, latDeg: number, lonDeg: number): CivilTimeState {
-  const [controller, dispatch] = useReducer(
-    reduceCivilTimeController,
-    undefined,
-    createCivilTimeControllerState,
-  );
-  const nextRequestId = useRef(0);
+export type TimeZoneLookup = (latDeg: number, lonDeg: number) => Promise<string | null>;
 
-  useEffect(() => {
-    const requestId = ++nextRequestId.current;
-    dispatch({ type: "coordinates-requested", requestId });
+const useCoordinateCommitEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-    void lookupTimeZone(latDeg, lonDeg).then((timeZoneId) => {
-      if (timeZoneId === null) {
-        dispatch({ type: "lookup-failed", requestId });
-      } else {
-        dispatch({ type: "lookup-succeeded", requestId, timeZoneId });
-      }
-    });
-  }, [latDeg, lonDeg]);
+export function createUseCivilTime(timeZoneLookup: TimeZoneLookup) {
+  return function useCivilTimeWithLookup(
+    instant: number,
+    latDeg: number,
+    lonDeg: number,
+  ): CivilTimeState {
+    const [controller, dispatch] = useReducer(
+      reduceCivilTimeController,
+      undefined,
+      createCivilTimeControllerState,
+    );
+    const nextRequestId = useRef(0);
+    const committedRequestId = useRef(0);
+    const activeLookup = useRef<{ requestId: number; cancelled: boolean } | null>(null);
 
-  return useMemo(() => selectCivilTimeState(controller, instant), [controller, instant]);
+    useCoordinateCommitEffect(() => {
+      if (activeLookup.current !== null) activeLookup.current.cancelled = true;
+
+      const requestId = ++nextRequestId.current;
+      committedRequestId.current = requestId;
+      dispatch({ type: "coordinates-requested", requestId });
+
+      return () => {
+        if (activeLookup.current?.requestId === requestId) {
+          activeLookup.current.cancelled = true;
+        }
+      };
+    }, [latDeg, lonDeg]);
+
+    useEffect(() => {
+      const requestId = committedRequestId.current;
+      const lookup = { requestId, cancelled: false };
+      activeLookup.current = lookup;
+
+      void timeZoneLookup(latDeg, lonDeg).then((timeZoneId) => {
+        if (lookup.cancelled) return;
+
+        if (timeZoneId === null) {
+          dispatch({ type: "lookup-failed", requestId });
+        } else {
+          dispatch({ type: "lookup-succeeded", requestId, timeZoneId });
+        }
+      });
+
+      return () => {
+        lookup.cancelled = true;
+        if (activeLookup.current === lookup) activeLookup.current = null;
+      };
+    }, [latDeg, lonDeg]);
+
+    return useMemo(() => selectCivilTimeState(controller, instant), [controller, instant]);
+  };
 }
+
+export const useCivilTime = createUseCivilTime(lookupTimeZone);

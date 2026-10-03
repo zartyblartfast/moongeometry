@@ -1,13 +1,238 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
+import { StrictMode, createElement, useEffect, useLayoutEffect, type ReactNode } from "react";
+import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import type { CivilTimeState } from "./use-civil-time.ts";
+
+Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
+
+const {
+  createUseCivilTime,
   createCivilTimeControllerState,
   reduceCivilTimeController,
   selectCivilTimeState,
-} from "./use-civil-time.ts";
+} = await import("./use-civil-time.ts");
 
 const winter = Date.UTC(2024, 0, 15, 12, 34);
 const summer = Date.UTC(2024, 6, 15, 12, 34);
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
+  true;
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+};
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+function synchronousDeferred<T>(): Deferred<T> {
+  let onFulfilled: ((value: T) => void) | undefined;
+  const promise = {
+    then(fulfilled: (value: T) => unknown) {
+      onFulfilled = fulfilled;
+      return Promise.resolve();
+    },
+  } as Promise<T>;
+  return {
+    promise,
+    resolve(value) {
+      onFulfilled?.(value);
+    },
+  };
+}
+
+type CivilTimeHook = (instant: number, latDeg: number, lonDeg: number) => CivilTimeState;
+type HookProps = { instant: number; latDeg: number; lonDeg: number };
+
+async function mountCivilTimeHook(
+  useHook: CivilTimeHook,
+  initialProps: HookProps,
+  options: { strict?: boolean; onCleanup?: () => void } = {},
+) {
+  let latestState: CivilTimeState | undefined;
+  let renderCount = 0;
+
+  function Harness({ instant, latDeg, lonDeg }: HookProps): ReactNode {
+    latestState = useHook(instant, latDeg, lonDeg);
+    renderCount += 1;
+    useEffect(() => () => options.onCleanup?.(), []);
+    return null;
+  }
+
+  function element(props: HookProps) {
+    const harness = createElement(Harness, props);
+    return options.strict ? createElement(StrictMode, null, harness) : harness;
+  }
+
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(element(initialProps));
+  });
+
+  return {
+    get state() {
+      assert.ok(latestState);
+      return latestState;
+    },
+    get renderCount() {
+      return renderCount;
+    },
+    async update(props: HookProps) {
+      await act(async () => {
+        renderer.update(element(props));
+      });
+    },
+    async unmount() {
+      await act(async () => {
+        renderer.unmount();
+      });
+    },
+  };
+}
+
+test("coordinate commit rejects a prior lookup that resolves before passive effects", async () => {
+  const requests: Array<Deferred<string | null>> = [];
+  const useTestCivilTime = createUseCivilTime(() => {
+    const request = synchronousDeferred<string | null>();
+    requests.push(request);
+    return request.promise;
+  });
+  let latestState: CivilTimeState | undefined;
+
+  function Harness({
+    latDeg,
+    lonDeg,
+    afterCommit,
+  }: {
+    latDeg: number;
+    lonDeg: number;
+    afterCommit?: () => void;
+  }): ReactNode {
+    latestState = useTestCivilTime(winter, latDeg, lonDeg);
+    useLayoutEffect(() => {
+      afterCommit?.();
+    }, [afterCommit, latDeg, lonDeg]);
+    return null;
+  }
+
+  let renderer: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(createElement(Harness, { latDeg: 51.5, lonDeg: -0.1 }));
+  });
+  assert.equal(requests.length, 1);
+
+  await act(async () => {
+    renderer.update(
+      createElement(Harness, {
+        latDeg: 40.75,
+        lonDeg: -73.98,
+        afterCommit: () => requests[0].resolve("Europe/London"),
+      }),
+    );
+  });
+
+  assert.equal(requests.length, 2);
+  assert.deepEqual(latestState, { status: "loading" });
+
+  await act(async () => {
+    renderer.unmount();
+  });
+});
+
+test("latest lookup resolves and becomes ready", async () => {
+  const request = deferred<string | null>();
+  const hook = await mountCivilTimeHook(createUseCivilTime(() => request.promise), {
+    instant: winter,
+    latDeg: 51.5,
+    lonDeg: -0.1,
+  });
+
+  assert.deepEqual(hook.state, { status: "loading" });
+
+  await act(async () => {
+    request.resolve("Europe/London");
+    await request.promise;
+  });
+
+  assert.equal(hook.state.status, "ready");
+  if (hook.state.status === "ready") {
+    assert.equal(hook.state.value.timeZoneId, "Europe/London");
+    assert.equal(hook.state.refreshingCoordinates, false);
+  }
+  await hook.unmount();
+});
+
+test("instant-only rerender creates no lookup and reformats the current zone", async () => {
+  const requests: Array<Deferred<string | null>> = [];
+  const hook = await mountCivilTimeHook(
+    createUseCivilTime(() => {
+      const request = deferred<string | null>();
+      requests.push(request);
+      return request.promise;
+    }),
+    { instant: winter, latDeg: 51.5, lonDeg: -0.1 },
+  );
+
+  await act(async () => {
+    requests[0].resolve("Europe/London");
+    await requests[0].promise;
+  });
+  assert.equal(hook.state.status, "ready");
+  if (hook.state.status === "ready") assert.equal(hook.state.value.clock, "12:34");
+
+  await hook.update({ instant: summer, latDeg: 51.5, lonDeg: -0.1 });
+
+  assert.equal(requests.length, 1);
+  assert.equal(hook.state.status, "ready");
+  if (hook.state.status === "ready") assert.equal(hook.state.value.clock, "13:34");
+  await hook.unmount();
+});
+
+test("unmount cleanup prevents a late lookup completion from taking effect", async () => {
+  const request = deferred<string | null>();
+  const hook = await mountCivilTimeHook(createUseCivilTime(() => request.promise), {
+    instant: winter,
+    latDeg: 51.5,
+    lonDeg: -0.1,
+  });
+  const rendersBeforeUnmount = hook.renderCount;
+
+  await hook.unmount();
+  await act(async () => {
+    request.resolve("Europe/London");
+    await request.promise;
+  });
+
+  assert.equal(hook.renderCount, rendersBeforeUnmount);
+  assert.deepEqual(hook.state, { status: "loading" });
+});
+
+test("Strict Mode replay rejects the lookup cancelled by effect cleanup", async () => {
+  const requests: Array<Deferred<string | null>> = [];
+  const hook = await mountCivilTimeHook(
+    createUseCivilTime(() => {
+      const request = synchronousDeferred<string | null>();
+      requests.push(request);
+      return request.promise;
+    }),
+    { instant: winter, latDeg: 51.5, lonDeg: -0.1 },
+    {
+      strict: true,
+      onCleanup: () => requests[0]?.resolve("Europe/London"),
+    },
+  );
+
+  assert.equal(requests.length, 2);
+  assert.deepEqual(hook.state, { status: "loading" });
+  await hook.unmount();
+});
 
 test("first unresolved lookup remains loading", () => {
   const initial = createCivilTimeControllerState();

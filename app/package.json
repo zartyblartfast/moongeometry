@@ -89,6 +89,7 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/react-test-renderer": "^19.1.0",
     "eslint": "^9.20.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -98,6 +99,7 @@
     "playwright": "^1.62.0",
     "pngjs": "^7.0.0",
     "prettier": "^3.4.0",
+    "react-test-renderer": "^19.2.0",
     "shpjs": "^6.2.0",
     "typescript-eslint": "^8.56.1"
   }
