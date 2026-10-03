@@ -19,6 +19,18 @@ test("first unresolved lookup remains loading", () => {
   assert.deepEqual(selectCivilTimeState(pending, winter), { status: "loading" });
 });
 
+test("initial lookup failure becomes unavailable and retry returns to loading", () => {
+  let state = createCivilTimeControllerState();
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 1 });
+  state = reduceCivilTimeController(state, { type: "lookup-failed", requestId: 1 });
+
+  assert.deepEqual(selectCivilTimeState(state, winter), { status: "unavailable" });
+
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 2 });
+
+  assert.deepEqual(selectCivilTimeState(state, winter), { status: "loading" });
+});
+
 test("first successful lookup becomes ready", () => {
   const pending = reduceCivilTimeController(createCivilTimeControllerState(), {
     type: "coordinates-requested",
@@ -90,6 +102,66 @@ test("stale lookup failure is ignored", () => {
 
   assert.equal(staleFailure, state);
   assert.deepEqual(selectCivilTimeState(staleFailure, winter), { status: "loading" });
+});
+
+test("stale retained-zone success is ignored while the latest request keeps refreshing", () => {
+  let state = createCivilTimeControllerState();
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 1 });
+  state = reduceCivilTimeController(state, {
+    type: "lookup-succeeded",
+    requestId: 1,
+    timeZoneId: "Europe/London",
+  });
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 2 });
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 3 });
+
+  const staleCompletion = reduceCivilTimeController(state, {
+    type: "lookup-succeeded",
+    requestId: 2,
+    timeZoneId: "America/New_York",
+  });
+
+  assert.equal(staleCompletion, state);
+  const refreshing = selectCivilTimeState(staleCompletion, winter);
+  assert.equal(refreshing.status, "ready");
+  if (refreshing.status !== "ready") return;
+  assert.equal(refreshing.value.timeZoneId, "Europe/London");
+  assert.equal(refreshing.refreshingCoordinates, true);
+
+  const latestCompletion = reduceCivilTimeController(staleCompletion, {
+    type: "lookup-succeeded",
+    requestId: 3,
+    timeZoneId: "Asia/Tokyo",
+  });
+  const selected = selectCivilTimeState(latestCompletion, winter);
+  assert.equal(selected.status, "ready");
+  if (selected.status !== "ready") return;
+  assert.equal(selected.value.timeZoneId, "Asia/Tokyo");
+  assert.equal(selected.refreshingCoordinates, false);
+});
+
+test("stale retained-zone failure is ignored while the latest request keeps refreshing", () => {
+  let state = createCivilTimeControllerState();
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 1 });
+  state = reduceCivilTimeController(state, {
+    type: "lookup-succeeded",
+    requestId: 1,
+    timeZoneId: "Europe/London",
+  });
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 2 });
+  state = reduceCivilTimeController(state, { type: "coordinates-requested", requestId: 3 });
+
+  const staleFailure = reduceCivilTimeController(state, {
+    type: "lookup-failed",
+    requestId: 2,
+  });
+
+  assert.equal(staleFailure, state);
+  const refreshing = selectCivilTimeState(staleFailure, winter);
+  assert.equal(refreshing.status, "ready");
+  if (refreshing.status !== "ready") return;
+  assert.equal(refreshing.value.timeZoneId, "Europe/London");
+  assert.equal(refreshing.refreshingCoordinates, true);
 });
 
 test("latest lookup completion replaces the retained zone", () => {

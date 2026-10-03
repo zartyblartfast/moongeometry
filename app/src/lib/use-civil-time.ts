@@ -39,7 +39,7 @@ export function reduceCivilTimeController(
     const retainingResolvedZone = state.timeZoneId !== null;
     return {
       latestRequestId: action.requestId,
-      status: retainingResolvedZone ? "ready" : state.status,
+      status: retainingResolvedZone ? "ready" : "loading",
       timeZoneId: state.timeZoneId,
       refreshingCoordinates: retainingResolvedZone,
     };
