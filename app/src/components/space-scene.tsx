@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { daysSinceJ2000, eclipticPole, gmstDeg, hoopPoints, sunBeam, type Vec3 } from "@/lib/astro";
+// Natural Earth 1:50m land data are public domain: https://www.naturalearthdata.com/
+import earthLandUrl from "@/assets/earth-land.png";
+import { eclipticPole, hoopPoints, sunBeam, type Vec3 } from "@/lib/astro";
 import { ephemerisAstronomyProvider } from "@/lib/astronomy/ephemeris-provider";
 import type { AstronomyProviderSnapshot, OrbitalGeometryState } from "@/lib/astronomy/provider";
+import { earthMeshYRotation, observerOverlayScaleForCameraRadius } from "@/lib/earth-map";
 import { palette } from "@/lib/palette";
 import { useMoon, type Snap } from "@/lib/store";
 
@@ -22,39 +25,18 @@ function line(color: string) {
   return new THREE.Line(geom, mat);
 }
 
-function createEarthTexture() {
+type EarthTextureHandle = {
+  texture: THREE.CanvasTexture;
+  cancelLoad: () => void;
+};
+
+function createEarthTexture(): EarthTextureHandle {
   const w = 1024;
   const h = 512;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
-
-  const ocean = ctx.createLinearGradient(0, 0, 0, h);
-  ocean.addColorStop(0, "#2e7198");
-  ocean.addColorStop(0.5, "#18527d");
-  ocean.addColorStop(1, "#0e355b");
-  ctx.fillStyle = ocean;
-  ctx.fillRect(0, 0, w, h);
-
-  // Subtle latitude/longitude texture so the globe reads as a rotating Earth,
-  // while still staying quiet behind the explanatory orbit geometry.
-  ctx.strokeStyle = "rgba(183, 215, 230, 0.10)";
-  ctx.lineWidth = 1;
-  for (let lon = -150; lon <= 180; lon += 30) {
-    const x = ((lon + 180) / 360) * w;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
-    ctx.stroke();
-  }
-  for (let lat = -60; lat <= 60; lat += 30) {
-    const y = ((90 - lat) / 180) * h;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
-    ctx.stroke();
-  }
 
   const project = (lon: number, lat: number): [number, number] => [((lon + 180) / 360) * w, ((90 - lat) / 180) * h];
   const land = (points: [number, number][]) => {
@@ -69,21 +51,86 @@ function createEarthTexture() {
     ctx.stroke();
   };
 
-  ctx.fillStyle = "#72a46f";
-  ctx.strokeStyle = "rgba(238, 244, 220, 0.52)";
-  ctx.lineWidth = 1.4;
-  land([[-168, 72], [-135, 70], [-102, 56], [-72, 50], [-55, 25], [-82, 7], [-105, 16], [-125, 34], [-152, 50]]); // North America
-  land([[-82, 12], [-62, 8], [-47, -8], [-38, -23], [-55, -55], [-72, -45], [-80, -15]]); // South America
-  land([[-10, 72], [42, 70], [82, 55], [122, 56], [154, 42], [142, 12], [106, 4], [78, 22], [42, 12], [18, 35], [-8, 36]]); // Eurasia
-  land([[-18, 34], [10, 35], [35, 14], [44, -12], [28, -35], [16, -34], [2, -8], [-12, 6]]); // Africa
-  land([[112, -10], [154, -20], [146, -42], [118, -39], [108, -24]]); // Australia
-  land([[-52, 72], [-22, 76], [-16, 62], [-44, 58]]); // Greenland
-  land([[-180, -68], [-90, -72], [0, -70], [90, -72], [180, -68], [180, -90], [-180, -90]]); // Antarctica
+  const drawGraticule = () => {
+    // Subtle latitude/longitude texture so the globe reads as a rotating Earth,
+    // while still staying quiet behind the explanatory orbit geometry.
+    ctx.strokeStyle = "rgba(183, 215, 230, 0.10)";
+    ctx.lineWidth = 1;
+    for (let lon = -150; lon <= 180; lon += 30) {
+      const x = ((lon + 180) / 360) * w;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const y = ((90 - lat) / 180) * h;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+  };
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
+  const drawFallback = () => {
+    const ocean = ctx.createLinearGradient(0, 0, 0, h);
+    ocean.addColorStop(0, "#2e7198");
+    ocean.addColorStop(0.5, "#18527d");
+    ocean.addColorStop(1, "#0e355b");
+    ctx.fillStyle = ocean;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.fillStyle = "#72a46f";
+    ctx.strokeStyle = "rgba(238, 244, 220, 0.52)";
+    ctx.lineWidth = 1.4;
+    land([[-168, 72], [-135, 70], [-102, 56], [-72, 50], [-55, 25], [-82, 7], [-105, 16], [-125, 34], [-152, 50]]); // North America
+    land([[-82, 12], [-62, 8], [-47, -8], [-38, -23], [-55, -55], [-72, -45], [-80, -15]]); // South America
+    land([[-10, 72], [42, 70], [82, 55], [122, 56], [154, 42], [142, 12], [106, 4], [78, 22], [42, 12], [18, 35], [-8, 36]]); // Eurasia
+    land([[-18, 34], [10, 35], [35, 14], [44, -12], [28, -35], [16, -34], [2, -8], [-12, 6]]); // Africa
+    land([[112, -10], [154, -20], [146, -42], [118, -39], [108, -24]]); // Australia
+    land([[-52, 72], [-22, 76], [-16, 62], [-44, 58]]); // Greenland
+    land([[-180, -68], [-90, -72], [0, -70], [90, -72], [180, -68], [180, -90], [-180, -90]]); // Antarctica
+    ctx.restore();
+    drawGraticule();
+  };
+
+  drawFallback();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+
+  let active = true;
+  const image = new Image();
+  image.onload = () => {
+    if (!active) return;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(image, 0, 0, w, h);
+    ctx.restore();
+    drawGraticule();
+    texture.needsUpdate = true;
+  };
+  image.onerror = () => {
+    if (!active) return;
+  };
+  image.src = earthLandUrl;
+
+  return {
+    texture,
+    cancelLoad() {
+      active = false;
+      image.onload = null;
+      image.onerror = null;
+    },
+  };
 }
 
 function createEarthMaterial(map: THREE.Texture) {
@@ -375,10 +422,11 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       return mesh;
     });
 
-    const earthTexture = createEarthTexture();
+    const earthTextureHandle = createEarthTexture();
+    const earthTexture = earthTextureHandle.texture;
     const earthMaterial = createEarthMaterial(earthTexture);
     const earth = new THREE.Mesh(
-      new THREE.SphereGeometry(EARTH, 48, 32),
+      new THREE.SphereGeometry(EARTH, 96, 64),
       earthMaterial,
     );
     const figure = new THREE.Mesh(
@@ -415,6 +463,9 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         radius * Math.sin(phi) * Math.cos(theta),
       );
       camera.lookAt(0, 0, 0);
+      const overlayScale = observerOverlayScaleForCameraRadius(radius);
+      figure.scale.setScalar(overlayScale.figure);
+      plate.scale.setScalar(overlayScale.plate);
     };
     place();
     apiRef.current = {
@@ -458,7 +509,7 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
-      radius = Math.min(12, Math.max(3.4, radius + e.deltaY * 0.008));
+      radius = Math.min(12, Math.max(1.5, radius + e.deltaY * 0.008));
       place();
     };
     canvas.addEventListener("pointerdown", down);
@@ -495,7 +546,8 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       const sunUnit = cachedOrbitalGeometry.sunGeocentricUnit;
       const moonUnit = cachedOrbitalGeometry.moonGeocentricUnit;
       const moonPos: Vec3 = [moonUnit[0] * HOOP, moonUnit[1] * HOOP, moonUnit[2] * HOOP];
-      earth.rotation.y = -gmstDeg(daysSinceJ2000(rotation)) * (Math.PI / 180);
+      const greenwich = ephemerisAstronomyProvider.observerZenith(rotation, 0, 0);
+      earth.rotation.y = earthMeshYRotation(Math.atan2(greenwich[2], greenwich[0]));
       (earthMaterial.uniforms.sunDir.value as THREE.Vector3).set(sunUnit[0], sunUnit[1], sunUnit[2]).normalize();
       moon.position.set(moonPos[0], moonPos[1], moonPos[2]);
       const away = new THREE.Vector3(-sunUnit[0], -sunUnit[1], -sunUnit[2]).normalize();
@@ -557,6 +609,7 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       headGeom.dispose();
       ink.dispose();
       earthMaterial.dispose();
+      earthTextureHandle.cancelLoad();
       earthTexture.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
