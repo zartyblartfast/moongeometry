@@ -124,6 +124,13 @@ test("returns the civil date and year across a UTC year boundary", () => {
   });
 });
 
+test("rounds historical second-precision offsets to the nearest minute", () => {
+  const actual = formatCivilTime(Date.UTC(1900, 0, 1), "Europe/Paris");
+  assert.ok(actual);
+  assert.equal(actual.utcOffsetMinutes, 9);
+  assert.equal(actual.utcOffsetLabel, "UTC+00:09");
+});
+
 test("uses Intl offset semantics and no zone name for Etc/GMT zones", () => {
   const actual = formatCivilTime(Date.UTC(2024, 0, 15, 12), "Etc/GMT+5");
   assert.ok(actual);

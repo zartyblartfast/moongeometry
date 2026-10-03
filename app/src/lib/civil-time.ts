@@ -14,16 +14,20 @@ function partValue(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPa
 
 function parseOffset(value: string): number | null {
   const normalized = value.replace("−", "-");
-  const match = /^(?:GMT|UTC)(?:([+-])(\d{1,2})(?::?(\d{2}))?)?$/.exec(normalized);
+  const match =
+    /^(?:GMT|UTC)(?:([+-])(\d{1,2})(?:(?::(\d{2})(?::(\d{2}))?)|(\d{2})(\d{2})?)?)?$/.exec(
+      normalized,
+    );
   if (!match) return null;
   if (!match[1]) return 0;
 
   const hours = Number(match[2]);
-  const minutes = Number(match[3] ?? "0");
-  if (minutes >= 60) return null;
+  const minutes = Number(match[3] ?? match[5] ?? "0");
+  const seconds = Number(match[4] ?? match[6] ?? "0");
+  if (minutes >= 60 || seconds >= 60) return null;
 
-  const total = hours * 60 + minutes;
-  return match[1] === "-" ? -total : total;
+  const absoluteMinutes = Math.round((hours * 3600 + minutes * 60 + seconds) / 60);
+  return match[1] === "-" ? -absoluteMinutes : absoluteMinutes;
 }
 
 function offsetLabel(offsetMinutes: number): string {

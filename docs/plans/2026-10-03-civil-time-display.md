@@ -165,7 +165,11 @@ UTC
 GMT+1
 GMT+01:00
 GMT-04:00
+GMT+00:09:21
+GMT+000921
 ```
+
+Historical offsets may include seconds. Accept colon-separated or compact second-precision forms, round the absolute offset to the nearest displayed minute, and then apply the sign so negative half-minute values round away from zero consistently. The public contract remains minute-based.
 
 The final user-facing offset always uses `UTC`, two-digit hours, and two-digit minutes:
 
