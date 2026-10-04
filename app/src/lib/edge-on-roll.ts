@@ -7,6 +7,18 @@ const VECTOR_EPSILON = 1e-12;
 
 export type Vec3Like = readonly [number, number, number];
 export type Point2Like = readonly [number, number];
+export type CameraUpViewMode = "oblique" | "edge" | "north" | "free";
+
+/** Preserves the live camera roll only while orbiting freely; snap modes reset north-up. */
+export function cameraUpForViewMode(
+  viewMode: CameraUpViewMode,
+  currentCameraUp: Vec3Like,
+  edgeCameraUp: Vec3Like,
+): Vec3 {
+  if (viewMode === "free") return [...currentCameraUp];
+  if (viewMode === "edge") return [...edgeCameraUp];
+  return [0, 1, 0];
+}
 
 export function clampEdgeOnRollDeg(rollDeg: number): number {
   return Math.min(OBLIQUITY_DEG, Math.max(0, rollDeg));

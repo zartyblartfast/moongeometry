@@ -12,6 +12,7 @@ import earthLandUrl from "@/assets/earth-land.png";
 import { eclipticPole, hoopPoints, OBLIQUITY_DEG, sunBeam, type Vec3 } from "@/lib/astro";
 import {
   cameraUpForEdgeOnRoll,
+  cameraUpForViewMode,
   clampEdgeOnRollDeg,
   edgeOnRollValueText,
   formatEdgeOnRollDeg,
@@ -530,16 +531,17 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         radius * Math.sin(phi) * Math.cos(theta),
       );
       cameraView.copy(camera.position).multiplyScalar(-1).normalize();
-      if (localViewMode === "edge") {
-        camera.up.fromArray(cameraUpForEdgeOnRoll(
-          [cameraView.x, cameraView.y, cameraView.z],
-          celestialNorth,
-          eclipticNorth,
-          localEdgeRollDeg,
-        ));
-      } else {
-        camera.up.set(0, 1, 0);
-      }
+      const edgeCameraUp = cameraUpForEdgeOnRoll(
+        [cameraView.x, cameraView.y, cameraView.z],
+        celestialNorth,
+        eclipticNorth,
+        localEdgeRollDeg,
+      );
+      camera.up.fromArray(cameraUpForViewMode(
+        localViewMode,
+        [camera.up.x, camera.up.y, camera.up.z],
+        edgeCameraUp,
+      ));
       camera.lookAt(0, 0, 0);
       const overlayScale = observerOverlayScaleForCameraRadius(radius);
       figure.scale.setScalar(overlayScale.figure);

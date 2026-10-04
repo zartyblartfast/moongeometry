@@ -4,6 +4,7 @@ import { eclipticPole, OBLIQUITY_DEG } from "./astro.ts";
 import { EARTH_DISPLAY_Z_SCALE } from "./earth-map.ts";
 import {
   cameraUpForEdgeOnRoll,
+  cameraUpForViewMode,
   edgeOnRollValueText,
   formatEdgeOnRollDeg,
   rollDegForKey,
@@ -51,6 +52,16 @@ function cross(
     a[0]! * b[1]! - a[1]! * b[0]!,
   ];
 }
+
+test("view-mode camera-up policy preserves free orbit roll and resets snap modes", () => {
+  const rolledUp = [0, 0.92, 0.39] as const;
+  const edgeUp = [0, 0.9, 0.44] as const;
+
+  assert.deepEqual(cameraUpForViewMode("free", rolledUp, edgeUp), rolledUp);
+  assert.deepEqual(cameraUpForViewMode("edge", rolledUp, edgeUp), edgeUp);
+  assert.deepEqual(cameraUpForViewMode("oblique", rolledUp, edgeUp), [0, 1, 0]);
+  assert.deepEqual(cameraUpForViewMode("north", rolledUp, edgeUp), [0, 1, 0]);
+});
 
 test("zero roll returns normalized celestial north in the camera plane", () => {
   const up = cameraUpForEdgeOnRoll(
