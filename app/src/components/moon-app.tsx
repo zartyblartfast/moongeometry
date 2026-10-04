@@ -14,6 +14,14 @@ import {
 } from "@/lib/astro";
 import { observedViewState } from "@/lib/astronomy/observed";
 import { composeCivilTimeLine } from "@/lib/civil-time-line";
+import {
+  locationMemoryValue,
+  parseLocationMemory,
+  rememberedPlaceAfterCoordinateChange,
+  resolveInitialLocation,
+  type LocationMemory,
+  type RememberedPlace,
+} from "@/lib/location-memory";
 import { useMoon, type Play, type Snap } from "@/lib/store";
 import { useCivilTime } from "@/lib/use-civil-time";
 import { MoonPhase } from "./moon-phase";
@@ -108,31 +116,27 @@ export function MoonApp() {
   const [explainOpen, setExplainOpen] = useState(false);
   const [explainTab, setExplainTab] = useState<ExplainTab>("summary");
   const [orbitInfoOpen, setOrbitInfoOpen] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<RememberedPlace | null>(null);
   const civilTime = useCivilTime(instant, lat, lon);
 
   useEffect(() => {
     const urlState = readUrlState();
-    let nextLat = lat;
-    let nextLon = lon;
     let nextSpinHours = spinHours;
+    let saved: LocationMemory = {};
     try {
-      const raw = localStorage.getItem("moonpath-place");
-      if (raw) {
-        const saved = JSON.parse(raw) as { lat?: number; lon?: number; spinHours?: number };
-        if (typeof saved.lat === "number") nextLat = saved.lat;
-        if (typeof saved.lon === "number") nextLon = saved.lon;
-        if (typeof saved.spinHours === "number") nextSpinHours = saved.spinHours;
-      }
+      saved = parseLocationMemory(localStorage.getItem("moonpath-place"));
     } catch {
-      /* ignore broken local storage */
+      /* Browser storage can be unavailable without blocking the app. */
     }
-
-    if (urlState.lat !== undefined) nextLat = urlState.lat;
-    if (urlState.lon !== undefined) nextLon = urlState.lon;
+    if (saved.spinHours !== undefined) nextSpinHours = saved.spinHours;
+    const initialLocation = resolveInitialLocation(saved, urlState.lat, urlState.lon, lat, lon);
+    const nextLat = initialLocation.lat;
+    const nextLon = initialLocation.lon;
 
     setLat(nextLat);
     setLon(nextLon);
     setSpinHours(nextSpinHours);
+    setSelectedPlace(initialLocation.place);
 
     if (urlState.date && urlState.time) {
       const [y, m, d] = urlState.date.split("-").map(Number);
@@ -147,8 +151,16 @@ export function MoonApp() {
 
   useEffect(() => {
     if (!mounted) return;
-    localStorage.setItem("moonpath-place", JSON.stringify({ lat, lon, spinHours }));
-  }, [lat, lon, spinHours, mounted]);
+    try {
+      localStorage.setItem("moonpath-place", JSON.stringify(locationMemoryValue(lat, lon, spinHours, selectedPlace)));
+    } catch {
+      /* Browsing still works when storage is unavailable. */
+    }
+  }, [lat, lon, spinHours, selectedPlace, mounted]);
+
+  useEffect(() => {
+    setSelectedPlace((place) => rememberedPlaceAfterCoordinateChange(mounted, place, lat, lon));
+  }, [lat, lon, mounted]);
 
   useEffect(() => {
     if (!mounted || playing !== "none") return;
@@ -322,7 +334,9 @@ export function MoonApp() {
         <PlaceSearch
           lat={lat}
           lon={lon}
+          selectedPlace={selectedPlace}
           onSelect={(place) => {
+            setSelectedPlace({ label: place.label, lat: place.lat, lon: place.lon });
             setLat(place.lat);
             setLon(place.lon);
           }}

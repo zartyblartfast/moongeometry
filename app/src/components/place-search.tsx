@@ -1,41 +1,27 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { searchPlaces, type PlaceResult } from "@/lib/geocode";
+import { rememberedPlaceForCoordinates, type RememberedPlace } from "@/lib/location-memory";
 
 type PlaceSearchProps = {
   lat: number;
   lon: number;
+  selectedPlace: RememberedPlace | null;
   onSelect: (place: PlaceResult) => void;
 };
 
-type SelectedPlace = {
-  label: string;
-  lat: number;
-  lon: number;
-};
-
-function coordinatesMatch(a: number, b: number): boolean {
-  return Math.abs(a - b) < 0.0001;
-}
-
-export function PlaceSearch({ lat, lon, onSelect }: PlaceSearchProps) {
-  const [query, setQuery] = useState("");
+export function PlaceSearch({ lat, lon, selectedPlace, onSelect }: PlaceSearchProps) {
+  const [query, setQuery] = useState(selectedPlace?.label ?? "");
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const requestIdRef = useRef(0);
-  const selectedRef = useRef<SelectedPlace | null>(null);
 
   useEffect(() => {
-    const selected = selectedRef.current;
-    if (!selected) return;
-
-    if (!coordinatesMatch(lat, selected.lat) || !coordinatesMatch(lon, selected.lon)) {
-      selectedRef.current = null;
-      setQuery("");
-      setResults([]);
-      setMessage("");
-    }
-  }, [lat, lon]);
+    const matchingPlace = rememberedPlaceForCoordinates(selectedPlace, lat, lon);
+    setQuery(matchingPlace?.label ?? "");
+    setResults([]);
+    setMessage("");
+  }, [lat, lon, selectedPlace]);
 
   async function runSearch() {
     const normalised = query.trim().replace(/\s+/g, " ");
@@ -70,7 +56,6 @@ export function PlaceSearch({ lat, lon, onSelect }: PlaceSearchProps) {
   }
 
   function selectPlace(place: PlaceResult) {
-    selectedRef.current = { label: place.label, lat: place.lat, lon: place.lon };
     setQuery(place.label);
     setResults([]);
     setMessage("");
@@ -85,7 +70,6 @@ export function PlaceSearch({ lat, lon, onSelect }: PlaceSearchProps) {
           type="search"
           value={query}
           onChange={(event) => {
-            selectedRef.current = null;
             setQuery(event.target.value);
             setResults([]);
             setMessage("");
