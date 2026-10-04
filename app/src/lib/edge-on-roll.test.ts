@@ -306,20 +306,23 @@ test("keyboard controls step by 0.5 degrees and support Home and End", () => {
   assert.equal(rollDegForKey(12, "Enter"), null);
 });
 
-test("angle display formatting uses endpoint and intermediate precision", () => {
-  assert.equal(formatEdgeOnRollDeg(0), "0°");
-  assert.equal(formatEdgeOnRollDeg(12), "12.0°");
-  assert.equal(formatEdgeOnRollDeg(OBLIQUITY_DEG), "23.4°");
+test("angle display identifies the value as camera roll", () => {
+  assert.equal(formatEdgeOnRollDeg(0), "Roll 0°");
+  assert.equal(formatEdgeOnRollDeg(12), "Roll 12.0°");
+  assert.equal(formatEdgeOnRollDeg(OBLIQUITY_DEG), "Roll 23.4°");
 });
 
-test("accessible value text explains endpoint and intermediate level conditions", () => {
-  assert.equal(edgeOnRollValueText(0), "0 degrees, equator horizontal");
+test("accessible value text distinguishes camera roll from plane separation", () => {
+  assert.equal(
+    edgeOnRollValueText(0),
+    "Camera roll 0 degrees; equator horizontal",
+  );
   assert.equal(
     edgeOnRollValueText(12),
-    "12.0 degrees between equator-level and ecliptic-level",
+    "Camera roll 12.0 degrees toward ecliptic horizontal",
   );
   assert.equal(
     edgeOnRollValueText(OBLIQUITY_DEG),
-    "23.4 degrees, ecliptic horizontal",
+    "Camera roll 23.4 degrees; ecliptic horizontal",
   );
 });

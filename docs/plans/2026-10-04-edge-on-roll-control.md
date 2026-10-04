@@ -202,9 +202,9 @@ aria-valuenow="…"
 
 Use an `aria-valuetext` that explains the endpoints without adding those words to the visible diagram:
 
-- `0 degrees, equator horizontal`
-- `23.4 degrees, ecliptic horizontal`
-- intermediate example: `12.0 degrees between equator-level and ecliptic-level`
+- `Camera roll 0 degrees; equator horizontal`
+- `Camera roll 23.4 degrees; ecliptic horizontal`
+- intermediate example: `Camera roll 12.0 degrees toward ecliptic horizontal`
 
 Keyboard behavior:
 
@@ -233,11 +233,10 @@ Do not add permanent in-diagram labels such as:
 - `Equator level`
 - `Ecliptic level`
 - `Axial tilt`
-- `Camera roll`
 
 The existing colored geometry and legend already identify the equator and ecliptic. Additional words inside the orbital diagram would compete with the geometry.
 
-The only new visible text inside the diagram is the numeric angle value.
+The only new visible text inside the diagram is the compact roll value. Prefix it with `Roll` so intermediate values cannot be mistaken for a changing angle between the equator and ecliptic.
 
 ### 5.2 Arc geometry
 
@@ -277,10 +276,9 @@ Place the numeric angle below the arc, centred near its midpoint.
 
 Formatting:
 
-- exactly `0°` at the north-up endpoint;
-- exactly `23.4°` at the ecliptic-level endpoint;
-- one decimal place for intermediate values, for example `12.0°`;
-- no visible prefix or suffix beyond the degree sign.
+- exactly `Roll 0°` at the north-up endpoint;
+- exactly `Roll 23.4°` at the ecliptic-level endpoint;
+- one decimal place for intermediate values, for example `Roll 12.0°`.
 
 Use the existing small muted-text styling. The value must remain readable but must not have the visual weight of the diagram legend.
 
@@ -296,7 +294,7 @@ To prevent persistent clutter:
 **On hover or keyboard focus at `0°`:**
 
 - show a faint preview of the permitted sweep from `0°` to `23.4°`;
-- show `0°` beneath it;
+- show `Roll 0°` beneath it;
 - do not add endpoint words.
 
 **While dragging or changing by keyboard:**
@@ -307,7 +305,7 @@ To prevent persistent clutter:
 **At rest above `0°`:**
 
 - keep the measured arc and numeric value visible at the quieter resting opacity;
-- at the endpoint, show `23.4°`.
+- at the endpoint, show `Roll 23.4°`.
 
 **After returning to `0°`:**
 

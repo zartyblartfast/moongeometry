@@ -42,7 +42,7 @@ The current screen contains two main synchronized views:
 
 1. **Orbital geometry**
    - A Three.js/WebGL schematic of Earth, the equator, the ecliptic, sunlight direction and the Moon's inclined orbit.
-   - The globe includes schematic continents/oceans, an observer marker, and day/night/twilight shading.
+   - The globe uses generated Natural Earth coastline data and includes an observer marker plus day/night/twilight shading.
    - Distances and sizes are intentionally schematic.
 
 2. **Local sky path**
@@ -55,7 +55,9 @@ The controls include:
 - date
 - **mean solar time** at the selected longitude
 - a read-only UTC reference for the same instant
+- read-only local civil time derived from the selected coordinates, including date-specific daylight-saving rules
 - explicit place lookup via OpenStreetMap/Nominatim search
+- an Edge-on camera-roll control that levels either the equator or ecliptic without changing their fixed 23.4° separation
 
 The time input is deliberately **not** civil/watch time. The URL stores mean-solar `date` and `time`, plus `lat` and `lon`:
 
@@ -63,7 +65,9 @@ The time input is deliberately **not** civil/watch time. The URL stores mean-sol
 ?lat=51.5&lon=-0.1&date=2026-12-21&time=21:00
 ```
 
-Place search sets coordinates only. It does not set a time zone or daylight-saving rule.
+Place search sets coordinates rather than an editable time zone. The app maps those coordinates approximately to an IANA time-zone identifier, then uses the browser's date-specific time-zone rules to display civil time. Near time-zone borders, verify the resulting zone before using it for legal, travel, scheduling or operational purposes.
+
+The last selected place label and its exact coordinates are remembered in browser storage and restored on a later visit. An unrelated location supplied in a shared URL takes precedence over that remembered place.
 
 The app also includes an **Explain** panel with:
 
@@ -82,9 +86,9 @@ The user-facing Sun and Moon altitude, azimuth and declination; lunar phase, ill
 
 Rise/set is the app's own geometric center crossing at altitude 0°. It does not include atmospheric refraction, apparent Sun/Moon radius, terrain or weather, so its times should not be treated as conventional apparent-rise/set almanac times.
 
-The editable date/time remains **mean solar time** at the selected longitude. UTC is a read-only reference for the same instant, not a second editable clock.
+The editable date/time remains **mean solar time** at the selected longitude. UTC and local civil time are read-only references for the same instant, not additional editable clocks. Civil time is derived from an approximate coordinate-to-zone lookup and the browser's time-zone data.
 
-The Three.js orrery remains educational and schematic. Geocentric ephemeris directions drive the displayed Sun and Moon angles, but object sizes, distances, orbit-hoop radius, sunlight-ray length, continents and overall scale are not realistic. It does not render libration, detailed lunar surface orientation or a Cassini-state model.
+The Three.js orrery remains educational and schematic. Geocentric ephemeris directions drive the displayed Sun and Moon angles. The coastline map is generated from Natural Earth data and geographically aligned, but it is only an orientation map rather than a terrain model. Object sizes, distances, orbit-hoop radius, sunlight-ray length and overall scale are not realistic. The app does not render libration, detailed lunar surface orientation or a Cassini-state model.
 
 The earlier simple/mean-orbit provider remains in the codebase for comparison and testing, but it is not the active observed display model.
 

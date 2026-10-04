@@ -50,16 +50,16 @@ export function rollDegForKey(rollDeg: number, key: string): number | null {
 
 export function formatEdgeOnRollDeg(rollDeg: number): string {
   const clamped = clampEdgeOnRollDeg(rollDeg);
-  return clamped === 0 ? "0°" : `${clamped.toFixed(1)}°`;
+  return clamped === 0 ? "Roll 0°" : `Roll ${clamped.toFixed(1)}°`;
 }
 
 export function edgeOnRollValueText(rollDeg: number): string {
   const clamped = clampEdgeOnRollDeg(rollDeg);
-  if (clamped === 0) return "0 degrees, equator horizontal";
+  if (clamped === 0) return "Camera roll 0 degrees; equator horizontal";
   const degrees = clamped.toFixed(1);
   if (clamped === OBLIQUITY_DEG)
-    return `${degrees} degrees, ecliptic horizontal`;
-  return `${degrees} degrees between equator-level and ecliptic-level`;
+    return `Camera roll ${degrees} degrees; ecliptic horizontal`;
+  return `Camera roll ${degrees} degrees toward ecliptic horizontal`;
 }
 
 /** Converts a CSS-pixel pointer bearing clockwise from screen-up into bounded roll. */
