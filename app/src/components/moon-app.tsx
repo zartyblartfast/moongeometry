@@ -23,7 +23,7 @@ import { SpaceScene } from "./space-scene";
 
 const SNAPS: { id: Snap; label: string }[] = [
   { id: "oblique", label: "Three-quarter" },
-  { id: "edge", label: "Edge-on ecliptic" },
+  { id: "edge", label: "Edge-on" },
   { id: "north", label: "From the north" },
 ];
 
@@ -376,7 +376,7 @@ export function MoonApp() {
           />
         </label>
         <p className="text-xs text-muted sm:col-span-2 lg:col-span-9">
-          Topocentric ephemeris positions. Geometric rise/set. No refraction. Distances remain schematic. Drag the model to turn it. The Earth spin slider sets the pace, from one night up to a whole year. Slide the Moon holds the clock and lets declination drift.
+          Topocentric ephemeris positions. Geometric rise/set. No refraction. Distances remain schematic. Drag the model to turn it. In Edge-on view, drag the north-axis tip to level the equator or ecliptic. The Earth spin slider sets the pace, from one night up to a whole year. Slide the Moon holds the clock and lets declination drift.
         </p>
       </section>
     </main>

@@ -1,8 +1,24 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import * as THREE from "three";
 // Natural Earth 1:50m land data are public domain: https://www.naturalearthdata.com/
 import earthLandUrl from "@/assets/earth-land.png";
-import { eclipticPole, hoopPoints, sunBeam, type Vec3 } from "@/lib/astro";
+import { eclipticPole, hoopPoints, OBLIQUITY_DEG, sunBeam, type Vec3 } from "@/lib/astro";
+import {
+  cameraUpForEdgeOnRoll,
+  clampEdgeOnRollDeg,
+  edgeOnRollValueText,
+  formatEdgeOnRollDeg,
+  rollDegForKey,
+  rollDegFromPointer,
+  snapEdgeOnRollDeg,
+} from "@/lib/edge-on-roll";
 import { ephemerisAstronomyProvider } from "@/lib/astronomy/ephemeris-provider";
 import type { AstronomyProviderSnapshot, OrbitalGeometryState } from "@/lib/astronomy/provider";
 import { EARTH_DISPLAY_Z_SCALE, earthMeshYRotation, observerOverlayScaleForCameraRadius } from "@/lib/earth-map";
@@ -16,7 +32,17 @@ const HEAD_W = 0.13;
 const SHAFT_W = 0.032;
 const INK_DEPTH = 0.016;
 
-type Api = { placeSnap: (snap: Snap) => void };
+type ViewMode = Snap | "free";
+type OverlayProjection = {
+  centre: readonly [number, number];
+  pole: readonly [number, number];
+  width: number;
+  height: number;
+};
+type Api = {
+  placeSnap: (snap: Snap) => void;
+  setEdgeRoll: (rollDeg: number) => void;
+};
 
 function line(color: string) {
   const geom = new THREE.BufferGeometry();
@@ -307,6 +333,17 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     };
   }, [orbitInstant, snapshot.d, snapshot.moon.geocentricUnit, snapshot.sun.geocentricUnit]);
   const [failed, setFailed] = useState(false);
+  const [webglReady, setWebglReady] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("oblique");
+  const [edgeRollDeg, setEdgeRollDeg] = useState(0);
+  const edgeRollDegRef = useRef(0);
+  const [overlayProjection, setOverlayProjection] = useState<OverlayProjection | null>(null);
+  const [rollHovered, setRollHovered] = useState(false);
+  const [rollFocused, setRollFocused] = useState(false);
+  const [rollInteracting, setRollInteracting] = useState(false);
+  const activeRollPointerRef = useRef<number | null>(null);
+  const activeRollTargetRef = useRef<SVGCircleElement | null>(null);
+  const rollTargetRef = useRef<SVGCircleElement>(null);
   const d = snapshot.d;
 
   useEffect(() => {
@@ -382,6 +419,7 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     renderer.setClearColor(palette.bg, 1);
+    setWebglReady(true);
 
     const scene = new THREE.Scene();
     // Equatorial vectors use +Z for increasing right ascension. Reflecting the
@@ -460,20 +498,63 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     let theta = 0.78;
     let phi = 1.02;
     let radius = 6.4;
+    let localViewMode: ViewMode = "oblique";
+    let localEdgeRollDeg = 0;
+    const cameraView = new THREE.Vector3();
+    const earthCentreProjection = new THREE.Vector3();
+    const northTipProjection = new THREE.Vector3();
+    const celestialNorth: Vec3 = [0, 1, 0];
+    const eclipticNorth = eclipticPole();
+    const publishOverlayProjection = () => {
+      const width = host.clientWidth || 1;
+      const height = host.clientHeight || 1;
+      earthCentreProjection.set(0, 0, 0).project(camera);
+      northTipProjection.set(0, 1.32, 0).project(camera);
+      setOverlayProjection({
+        centre: [
+          (earthCentreProjection.x * 0.5 + 0.5) * width,
+          (-earthCentreProjection.y * 0.5 + 0.5) * height,
+        ],
+        pole: [
+          (northTipProjection.x * 0.5 + 0.5) * width,
+          (-northTipProjection.y * 0.5 + 0.5) * height,
+        ],
+        width,
+        height,
+      });
+    };
     const place = () => {
       camera.position.set(
         radius * Math.sin(phi) * Math.sin(theta),
         radius * Math.cos(phi),
         radius * Math.sin(phi) * Math.cos(theta),
       );
+      cameraView.copy(camera.position).multiplyScalar(-1).normalize();
+      if (localViewMode === "edge") {
+        camera.up.fromArray(cameraUpForEdgeOnRoll(
+          [cameraView.x, cameraView.y, cameraView.z],
+          celestialNorth,
+          eclipticNorth,
+          localEdgeRollDeg,
+        ));
+      } else {
+        camera.up.set(0, 1, 0);
+      }
       camera.lookAt(0, 0, 0);
       const overlayScale = observerOverlayScaleForCameraRadius(radius);
       figure.scale.setScalar(overlayScale.figure);
       plate.scale.setScalar(overlayScale.plate);
+      camera.updateMatrixWorld();
+      publishOverlayProjection();
     };
     place();
     apiRef.current = {
       placeSnap(snap) {
+        localViewMode = snap;
+        localEdgeRollDeg = 0;
+        edgeRollDegRef.current = 0;
+        setViewMode(snap);
+        setEdgeRollDeg(0);
         if (snap === "oblique") {
           theta = 0.78;
           phi = 1.02;
@@ -489,27 +570,45 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         }
         place();
       },
+      setEdgeRoll(rollDeg) {
+        if (localViewMode !== "edge") return;
+        localEdgeRollDeg = clampEdgeOnRollDeg(rollDeg);
+        edgeRollDegRef.current = localEdgeRollDeg;
+        setEdgeRollDeg(localEdgeRollDeg);
+        place();
+      },
     };
 
     let dragging = false;
+    let canvasPointerId: number | null = null;
     let lx = 0;
     let ly = 0;
     const down = (e: PointerEvent) => {
       dragging = true;
+      canvasPointerId = e.pointerId;
       lx = e.clientX;
       ly = e.clientY;
       canvas.setPointerCapture(e.pointerId);
     };
     const move = (e: PointerEvent) => {
       if (!dragging) return;
+      if (localViewMode !== "free") {
+        localViewMode = "free";
+        localEdgeRollDeg = 0;
+        edgeRollDegRef.current = 0;
+        setViewMode("free");
+        setEdgeRollDeg(0);
+      }
       theta -= (e.clientX - lx) * 0.008;
       phi = Math.min(Math.PI - 0.08, Math.max(0.12, phi + (e.clientY - ly) * 0.008));
       lx = e.clientX;
       ly = e.clientY;
       place();
     };
-    const up = () => {
+    const up = (e: PointerEvent) => {
       dragging = false;
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      if (canvasPointerId === e.pointerId) canvasPointerId = null;
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -519,6 +618,7 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     canvas.addEventListener("wheel", wheel, { passive: false });
 
     const poleV = new THREE.Vector3(...eclipticPole());
@@ -597,6 +697,7 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(h, 1);
       camera.updateProjectionMatrix();
+      place();
     };
     const ro = new ResizeObserver(resize);
     ro.observe(host);
@@ -611,7 +712,11 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       canvas.removeEventListener("pointerdown", down);
       canvas.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
       canvas.removeEventListener("wheel", wheel);
+      if (canvasPointerId !== null && canvas.hasPointerCapture(canvasPointerId)) {
+        canvas.releasePointerCapture(canvasPointerId);
+      }
       shaftGeom.dispose();
       headGeom.dispose();
       ink.dispose();
@@ -630,6 +735,60 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     apiRef.current?.placeSnap(snap);
   }, [snap, snapTick]);
 
+  useEffect(() => () => {
+    const pointerId = activeRollPointerRef.current;
+    const target = activeRollTargetRef.current;
+    if (pointerId !== null && target?.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+    activeRollPointerRef.current = null;
+    activeRollTargetRef.current = null;
+  }, [viewMode]);
+
+  const rollFromPointerEvent = (event: ReactPointerEvent<SVGCircleElement>) => {
+    if (!overlayProjection || !hostRef.current) return edgeRollDegRef.current;
+    const rect = hostRef.current.getBoundingClientRect();
+    return clampEdgeOnRollDeg(rollDegFromPointer(
+      overlayProjection.centre,
+      [event.clientX - rect.left, event.clientY - rect.top],
+    ));
+  };
+  const onRollPointerDown = (event: ReactPointerEvent<SVGCircleElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    activeRollPointerRef.current = event.pointerId;
+    activeRollTargetRef.current = event.currentTarget;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.focus();
+    setRollInteracting(true);
+    apiRef.current?.setEdgeRoll(rollFromPointerEvent(event));
+  };
+  const onRollPointerMove = (event: ReactPointerEvent<SVGCircleElement>) => {
+    if (activeRollPointerRef.current !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    apiRef.current?.setEdgeRoll(rollFromPointerEvent(event));
+  };
+  const finishRollPointer = (event: ReactPointerEvent<SVGCircleElement>) => {
+    if (activeRollPointerRef.current !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    apiRef.current?.setEdgeRoll(snapEdgeOnRollDeg(edgeRollDegRef.current));
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    activeRollPointerRef.current = null;
+    activeRollTargetRef.current = null;
+    setRollInteracting(false);
+  };
+  const onRollKeyDown = (event: ReactKeyboardEvent<SVGCircleElement>) => {
+    const next = rollDegForKey(edgeRollDegRef.current, event.key);
+    if (next === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    apiRef.current?.setEdgeRoll(next);
+  };
+
   const w = 640;
   const h = 480;
   const eq = ringPath(hoopPoints("equator", d, 80), HOOP, w, h);
@@ -645,6 +804,35 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
   const guidePath = `M ${guideA[0].toFixed(1)} ${guideA[1].toFixed(1)} L ${guideB[0].toFixed(1)} ${guideB[1].toFixed(1)}`;
   const moonDot = project([snapshot.moon.geocentricUnit[0] * HOOP, snapshot.moon.geocentricUnit[1] * HOOP, snapshot.moon.geocentricUnit[2] * HOOP], w, h);
   const earthDot = project([0, 0, 0], w, h);
+
+  const annotationVisible = edgeRollDeg > 0 || rollHovered || rollFocused || rollInteracting;
+  const showFullSweep = edgeRollDeg === 0 && !rollInteracting && (rollHovered || rollFocused);
+  const arcAngleDeg = showFullSweep ? OBLIQUITY_DEG : edgeRollDeg;
+  const arcAngleRad = (arcAngleDeg * Math.PI) / 180;
+  const valueAngleRad = (edgeRollDeg * Math.PI) / 180;
+  const rollArcRadius = overlayProjection
+    ? Math.hypot(
+        overlayProjection.pole[0] - overlayProjection.centre[0],
+        overlayProjection.pole[1] - overlayProjection.centre[1],
+      ) + 10
+    : 0;
+  const rollArcPath = overlayProjection
+    ? `M ${overlayProjection.centre[0].toFixed(1)} ${(overlayProjection.centre[1] - rollArcRadius).toFixed(1)} A ${rollArcRadius.toFixed(1)} ${rollArcRadius.toFixed(1)} 0 0 1 ${(overlayProjection.centre[0] + Math.sin(arcAngleRad) * rollArcRadius).toFixed(1)} ${(overlayProjection.centre[1] - Math.cos(arcAngleRad) * rollArcRadius).toFixed(1)}`
+    : "";
+  const valueRadius = rollArcRadius + 17;
+  const valueX = overlayProjection
+    ? overlayProjection.centre[0] + Math.sin(valueAngleRad) * valueRadius
+    : 0;
+  const valueY = overlayProjection
+    ? overlayProjection.centre[1] - Math.cos(valueAngleRad) * valueRadius
+    : 0;
+  const annotationOpacity = !annotationVisible
+    ? 0
+    : rollInteracting || rollHovered || rollFocused
+      ? showFullSweep
+        ? 0.46
+        : 0.92
+      : 0.58;
 
   return (
     <div ref={hostRef} className="relative h-full w-full">
@@ -662,6 +850,70 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         <circle cx={earthDot[0].toFixed(1)} cy={earthDot[1].toFixed(1)} r={18} fill="var(--color-line)" />
         <circle cx={moonDot[0].toFixed(1)} cy={moonDot[1].toFixed(1)} r={6} fill="var(--color-silver)" />
       </svg>
+      {webglReady && !failed && viewMode === "edge" && overlayProjection ? (
+        <svg
+          viewBox={`0 0 ${overlayProjection.width} ${overlayProjection.height}`}
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
+          aria-hidden="false"
+        >
+          <g
+            className="pointer-events-none transition-opacity duration-700 motion-reduce:transition-none"
+            style={{ opacity: annotationOpacity }}
+            aria-hidden="true"
+          >
+            <path
+              d={rollArcPath}
+              fill="none"
+              stroke="var(--color-cream)"
+              strokeWidth={1.15}
+              strokeDasharray="3 4"
+              strokeLinecap="round"
+            />
+            <text
+              x={valueX}
+              y={valueY}
+              fill="var(--color-cream)"
+              fontSize={12}
+              fontWeight={600}
+              textAnchor="middle"
+              dominantBaseline="middle"
+            >
+              {formatEdgeOnRollDeg(edgeRollDeg)}
+            </text>
+          </g>
+          <circle
+            ref={rollTargetRef}
+            cx={overlayProjection.pole[0]}
+            cy={overlayProjection.pole[1]}
+            r={22}
+            fill="transparent"
+            stroke="transparent"
+            role="slider"
+            tabIndex={0}
+            aria-label="Edge-on level angle"
+            aria-valuemin={0}
+            aria-valuemax={OBLIQUITY_DEG}
+            aria-valuenow={edgeRollDeg}
+            aria-valuetext={edgeOnRollValueText(edgeRollDeg)}
+            aria-orientation="horizontal"
+            className="pointer-events-auto cursor-grab touch-none focus-visible:stroke-gold focus-visible:stroke-2 focus-visible:outline-none active:cursor-grabbing"
+            onPointerEnter={() => setRollHovered(true)}
+            onPointerLeave={() => setRollHovered(false)}
+            onFocus={() => setRollFocused(true)}
+            onBlur={() => setRollFocused(false)}
+            onKeyDown={onRollKeyDown}
+            onPointerDown={onRollPointerDown}
+            onPointerMove={onRollPointerMove}
+            onPointerUp={finishRollPointer}
+            onPointerCancel={finishRollPointer}
+            onLostPointerCapture={() => {
+              activeRollPointerRef.current = null;
+              activeRollTargetRef.current = null;
+              setRollInteracting(false);
+            }}
+          />
+        </svg>
+      ) : null}
       {failed ? (
         <p className="pointer-events-none absolute right-3 bottom-3 text-xs text-muted">WebGL is off — this is the flat stand-in.</p>
       ) : null}

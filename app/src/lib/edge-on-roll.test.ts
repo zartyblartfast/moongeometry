@@ -145,6 +145,45 @@ test("ecliptic is horizontal at maximum roll", () => {
   assertClose(dot(displayedEclipticEdge, up), 0);
 });
 
+test("production edge preset levels equator at zero and ecliptic at maximum", () => {
+  const theta = 1.57;
+  const phi = 1.57;
+  const radius = 6.6;
+  const cameraPosition = [
+    radius * Math.sin(phi) * Math.sin(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.cos(theta),
+  ] as const;
+  const positionLength = Math.hypot(...cameraPosition);
+  const viewingDirection = cameraPosition.map(
+    (component) => -component / positionLength,
+  ) as [number, number, number];
+  const pole = eclipticPole();
+  const displayedPole = [
+    pole[0],
+    pole[1],
+    pole[2] * EARTH_DISPLAY_Z_SCALE,
+  ] as const;
+  const equatorEdge = cross(viewingDirection, CELESTIAL_NORTH);
+  const eclipticEdge = cross(viewingDirection, displayedPole);
+
+  const equatorLevelUp = cameraUpForEdgeOnRoll(
+    viewingDirection,
+    CELESTIAL_NORTH,
+    pole,
+    0,
+  );
+  const eclipticLevelUp = cameraUpForEdgeOnRoll(
+    viewingDirection,
+    CELESTIAL_NORTH,
+    pole,
+    OBLIQUITY_DEG,
+  );
+
+  assertClose(dot(equatorEdge, equatorLevelUp), 0);
+  assertClose(dot(eclipticEdge, eclipticLevelUp), 0);
+});
+
 test("camera-up derivation does not mutate input vectors", () => {
   const view: [number, number, number] = [-1, 0, 0];
   const north: [number, number, number] = [0, 1, 0];
