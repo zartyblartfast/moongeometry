@@ -23,6 +23,7 @@ import {
   type RememberedPlace,
 } from "@/lib/location-memory";
 import { useMoon, type Play, type Snap } from "@/lib/store";
+import { instantForTimeScrubberMinute, timeScrubberMinute } from "@/lib/time-scrubber";
 import { useCivilTime } from "@/lib/use-civil-time";
 import { DeclinationDiagram } from "./declination-diagram";
 import { LocalSkyCoordinateDiagrams } from "./local-sky-coordinate-diagrams";
@@ -30,6 +31,7 @@ import { MoonPhase } from "./moon-phase";
 import { PlaceSearch } from "./place-search";
 import { SkyChart } from "./sky-chart";
 import { SpaceScene } from "./space-scene";
+import { TimeScrubber } from "./time-scrubber";
 
 const SNAPS: { id: Snap; label: string }[] = [
   { id: "oblique", label: "Three-quarter" },
@@ -183,6 +185,7 @@ export function MoonApp() {
   const setValue = ev.set ? <SolarUtcValue instant={ev.set} lon={lon} /> : setLabel;
   const altitudeLabel = altDeg < 0 ? "Below horizon" : deg1(altDeg);
   const azimuthLabel = `${deg1(azDeg)} · ${compass(azDeg)}`;
+  const scrubberMinute = timeScrubberMinute(instant, lon);
 
   const motion =
     playing === "spin"
@@ -204,6 +207,10 @@ export function MoonApp() {
     if (Number.isNaN(h) || Number.isNaN(min)) return;
     const p = localParts(instant, lon);
     setInstant(fromLocal(p.y, p.m, p.day, h, min, lon));
+  };
+  const onTimeScrub = (minute: number) => {
+    setPlaying("none");
+    setInstant(instantForTimeScrubberMinute(instant, lon, minute));
   };
 
   const toggle = (mode: Play) => setPlaying(playing === mode ? "none" : mode);
@@ -353,38 +360,39 @@ export function MoonApp() {
             className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-muted lg:col-span-2">
-          Mean solar time
+        <div className="flex flex-col gap-0.5 text-sm text-muted lg:col-span-2">
+          <label htmlFor="mean-solar-time">Mean solar time</label>
           <input
+            id="mean-solar-time"
             type="time"
             value={timeInputValue(instant, lon)}
             onChange={(e) => onTime(e.target.value)}
             suppressHydrationWarning
             className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
           />
-          <span className="text-xs text-muted">At this longitude. Not a time zone or a watch.</span>
+          <TimeScrubber minute={scrubberMinute} onChange={onTimeScrub} />
           <span className="text-xs text-muted">{formatUtcMomentLine(instant, lon)}</span>
           <span
             className="text-xs text-muted"
             title={civilTime.status === "ready" ? `IANA zone: ${civilTime.value.timeZoneId}` : undefined}
           >
             {civilTime.status === "loading"
-              ? "Civil time: calculating…"
+              ? "Civil · calculating…"
               : civilTime.status === "unavailable"
-                ? "Civil time: unavailable for these coordinates."
+                ? "Civil · unavailable"
                 : composeCivilTimeLine(civilTime.value, localParts(instant, lon).y)}
           </span>
-        </label>
+        </div>
         <Slider label={`Latitude ${lat.toFixed(1)}°`} min={-90} max={90} step={0.1} value={lat} onChange={setLat} />
         <Slider label={`Longitude ${lon.toFixed(1)}°`} min={-180} max={180} step={0.1} value={lon} onChange={setLon} />
         <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2 lg:col-span-2">
-          Earth spin · {formatSpin(spinHours)} · a year takes {yearTakes(spinHours)}
+          Earth spin · {formatSpin(spinHours)}
           <input
             type="range"
             min={0}
             max={1000}
             step={1}
-            aria-valuetext={`${formatSpin(spinHours)}, a year takes ${yearTakes(spinHours)}`}
+            aria-valuetext={formatSpin(spinHours)}
             value={spinToSlider(spinHours)}
             onChange={(e) => setSpinHours(sliderToSpin(Number(e.target.value)))}
             suppressHydrationWarning
@@ -603,14 +611,6 @@ function ReferenceLink({ href, label }: { href: string; label: string }) {
       </a>
     </li>
   );
-}
-
-function yearTakes(hoursPerSec: number): string {
-  const sec = (365.25 * 24) / hoursPerSec;
-  if (sec < 90) return `${Math.max(1, Math.round(sec))} sec`;
-  if (sec < 3600) return `${Math.round(sec / 60)} min`;
-  const h = sec / 3600;
-  return h < 10 ? `${h.toFixed(1)} h` : `${Math.round(h)} h`;
 }
 
 function formatSpin(hours: number): string {

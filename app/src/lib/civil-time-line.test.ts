@@ -15,14 +15,14 @@ const london = {
 test("composes a civil line with a zone name and no redundant year", () => {
   assert.equal(
     composeCivilTimeLine(london, 2026),
-    "Civil time: 19:10 BST, 3 Oct · UTC+01:00.",
+    "Civil · 19:10 BST, 3 Oct · UTC+01:00",
   );
 });
 
 test("appends the civil year when it differs from the mean-solar year", () => {
   assert.equal(
     composeCivilTimeLine({ ...london, date: "1 Jan", year: 2027 }, 2026),
-    "Civil time: 19:10 BST, 1 Jan 2027 · UTC+01:00.",
+    "Civil · 19:10 BST, 1 Jan 2027 · UTC+01:00",
   );
 });
 
@@ -39,6 +39,6 @@ test("omits a missing zone name for fixed-offset ocean zones", () => {
       },
       2026,
     ),
-    "Civil time: 13:10, 3 Oct · UTC-05:00.",
+    "Civil · 13:10, 3 Oct · UTC-05:00",
   );
 });

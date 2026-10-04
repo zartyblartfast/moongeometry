@@ -584,16 +584,16 @@ test("sun rays lie in the ecliptic and stay parallel", () => {
 
 
 test("UTC offset phrase follows mean solar longitude sign", () => {
-  assert.equal(utcOffsetPhrase(15), "1h behind this clock");
-  assert.equal(utcOffsetPhrase(-15), "1h ahead of this clock");
-  assert.equal(utcOffsetPhrase(0), "same as this clock");
-  assert.equal(utcOffsetPhrase(6), "24 min behind this clock");
-  assert.equal(utcOffsetPhrase(-74), "4h 56m ahead of this clock");
+  assert.equal(utcOffsetPhrase(15), "1h behind");
+  assert.equal(utcOffsetPhrase(-15), "1h ahead");
+  assert.equal(utcOffsetPhrase(0), "same time");
+  assert.equal(utcOffsetPhrase(6), "24 min behind");
+  assert.equal(utcOffsetPhrase(-74), "4h 56m ahead");
 });
 
 test("UTC labels describe the same instant as the mean solar clock", () => {
   const instant = Date.UTC(2026, 9, 1, 20, 36, 0);
-  assert.equal(formatUtcMomentLine(instant, 6), "Same moment: 20:36 UTC, 1 Oct · 24 min behind this clock.");
+  assert.equal(formatUtcMomentLine(instant, 6), "UTC · 20:36, 1 Oct · 24 min behind");
   assert.equal(formatSolarAndUtc(instant, 6), "21:00 · 20:36 UTC");
   const crossDate = Date.UTC(2026, 9, 1, 23, 30, 0);
   assert.equal(formatSolarAndUtc(crossDate, 15), "00:30 · 23:30 UTC, 1 Oct");

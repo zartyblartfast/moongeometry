@@ -420,18 +420,18 @@ function formatUtcDayMonth(instant: number, includeYear: boolean): string {
 export function utcOffsetPhrase(lonDeg: number): string {
   const minutes = Math.round(lonDeg * 4);
   const abs = Math.abs(minutes);
-  if (abs < 1) return "same as this clock";
+  if (abs < 1) return "same time";
   const hours = Math.floor(abs / 60);
   const mins = abs % 60;
   const amount = hours === 0 ? `${mins} min` : mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
-  return `${amount} ${minutes > 0 ? "behind" : "ahead of"} this clock`;
+  return `${amount} ${minutes > 0 ? "behind" : "ahead"}`;
 }
 
 export function formatUtcMomentLine(instant: number, lonDeg: number): string {
   const local = localParts(instant, lonDeg);
   const utc = new Date(instant);
   const includeYear = utc.getUTCFullYear() !== local.y;
-  return `Same moment: ${formatUtcClock(instant)} UTC, ${formatUtcDayMonth(instant, includeYear)} · ${utcOffsetPhrase(lonDeg)}.`;
+  return `UTC · ${formatUtcClock(instant)}, ${formatUtcDayMonth(instant, includeYear)} · ${utcOffsetPhrase(lonDeg)}`;
 }
 
 export function formatSolarAndUtc(instant: number, lonDeg: number): string {
