@@ -24,6 +24,8 @@ import {
 } from "@/lib/location-memory";
 import { useMoon, type Play, type Snap } from "@/lib/store";
 import { useCivilTime } from "@/lib/use-civil-time";
+import { DeclinationDiagram } from "./declination-diagram";
+import { LocalSkyCoordinateDiagrams } from "./local-sky-coordinate-diagrams";
 import { MoonPhase } from "./moon-phase";
 import { PlaceSearch } from "./place-search";
 import { SkyChart } from "./sky-chart";
@@ -481,7 +483,7 @@ function ExplainPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm leading-6 text-muted">
           {tab === "summary" ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <p className="text-base text-fg">
                 The left diagram is a schematic orrery: ephemeris directions set the Sun and Moon angles, while sizes and distances are simplified. The right diagram applies Earth's rotation, your position and observer parallax to show the local sky.
               </p>
@@ -498,6 +500,8 @@ function ExplainPanel({
               <p>
                 The key bridge is <strong className="text-fg">declination</strong>: the Moon's orbital position gives it a north/south angle on the celestial sphere. From your latitude, that declination determines how high its daily arc can climb. Earth's rotation then moves that arc across your local sky during the day.
               </p>
+              <DeclinationDiagram />
+              <LocalSkyCoordinateDiagrams />
             </div>
           ) : null}
 
