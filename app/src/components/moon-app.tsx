@@ -298,18 +298,27 @@ export function MoonApp() {
       const skySvg = document.querySelector<SVGSVGElement>(
         "svg[data-share-sky-chart]",
       );
-      if (!orbitalCanvas || !skySvg)
+      const phaseSvg = document.querySelector<SVGSVGElement>(
+        "svg[data-share-moon-phase]",
+      );
+      if (!orbitalCanvas || !skySvg || !phaseSvg)
         throw new Error("The diagrams are not ready to export yet.");
 
       const filename = shareInfographicFilename(instant, lon);
       const result = await createShareInfographic({
         orbitalCanvas,
         skySvg,
+        phaseSvg,
         instant,
         lat,
         lon,
         placeLabel: selectedPlace?.label ?? null,
-        phaseName: `${sky.moon.phaseName} · ${Math.round(sky.moon.illumination * 100)}% lit`,
+        phaseName: sky.moon.phaseName,
+        illuminationPercent: Math.round(sky.moon.illumination * 100),
+        altitudeDeg: altDeg,
+        azimuthDeg: azDeg,
+        declinationDeg: sky.decDeg,
+        transitAltitudeDeg: ev.transitAlt,
         appUrl: `${window.location.origin}${window.location.pathname}`,
       });
       setShareFilename(filename);

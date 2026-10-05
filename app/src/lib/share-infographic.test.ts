@@ -4,6 +4,7 @@ import { fromLocal } from "./astro.ts";
 import {
   formatShareCoordinates,
   formatShareMetadata,
+  formatShareSkyStats,
   shareInfographicFilename,
 } from "./share-infographic.ts";
 
@@ -39,5 +40,32 @@ test("share PNG filename follows the selected mean-solar date and time", () => {
   assert.equal(
     shareInfographicFilename(instant, longitude),
     "moon-geometry-2026-10-04-1817.png",
+  );
+});
+
+test("share sky stats preserve the app's altitude and compass formatting", () => {
+  assert.deepEqual(
+    formatShareSkyStats({
+      altitudeDeg: 62.2,
+      azimuthDeg: 258.1,
+      declinationDeg: 23.4,
+      transitAltitudeDeg: 80.7,
+    }),
+    {
+      altitude: "62.2°",
+      azimuth: "258.1° · WSW",
+      declination: "23.4°",
+      topOfPath: "80.7°",
+    },
+  );
+
+  assert.equal(
+    formatShareSkyStats({
+      altitudeDeg: -4.2,
+      azimuthDeg: 0,
+      declinationDeg: -12.3,
+      transitAltitudeDeg: null,
+    }).altitude,
+    "Below horizon",
   );
 });

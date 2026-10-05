@@ -1,4 +1,10 @@
-import { dateInputValue, formatDate, timeInputValue } from "./astro.ts";
+import {
+  compass,
+  dateInputValue,
+  deg1,
+  formatDate,
+  timeInputValue,
+} from "./astro.ts";
 import { palette } from "./palette.ts";
 
 export const SHARE_IMAGE_WIDTH = 1600;
@@ -13,12 +19,25 @@ export type ShareMetadata = {
 export type ShareInfographicInput = {
   orbitalCanvas: HTMLCanvasElement;
   skySvg: SVGSVGElement;
+  phaseSvg: SVGSVGElement;
   instant: number;
   lat: number;
   lon: number;
   placeLabel: string | null;
   phaseName: string;
+  illuminationPercent: number;
+  altitudeDeg: number;
+  azimuthDeg: number;
+  declinationDeg: number;
+  transitAltitudeDeg: number | null;
   appUrl: string;
+};
+
+export type ShareSkyStats = {
+  altitude: string;
+  azimuth: string;
+  declination: string;
+  topOfPath: string;
 };
 
 function coordinate(value: number, positive: string, negative: string) {
@@ -51,6 +70,23 @@ export function shareInfographicFilename(instant: number, lon: number) {
   return `moon-geometry-${dateInputValue(instant, lon)}-${timeInputValue(instant, lon).replace(":", "")}.png`;
 }
 
+export function formatShareSkyStats({
+  altitudeDeg,
+  azimuthDeg,
+  declinationDeg,
+  transitAltitudeDeg,
+}: Pick<
+  ShareInfographicInput,
+  "altitudeDeg" | "azimuthDeg" | "declinationDeg" | "transitAltitudeDeg"
+>): ShareSkyStats {
+  return {
+    altitude: altitudeDeg < 0 ? "Below horizon" : deg1(altitudeDeg),
+    azimuth: `${deg1(azimuthDeg)} · ${compass(azimuthDeg)}`,
+    declination: deg1(declinationDeg),
+    topOfPath: transitAltitudeDeg == null ? "—" : deg1(transitAltitudeDeg),
+  };
+}
+
 function roundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -74,6 +110,37 @@ function drawText(
   ctx.font = font;
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
+}
+
+function drawWrappedText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number,
+  font: string,
+  color: string,
+) {
+  ctx.font = font;
+  ctx.fillStyle = color;
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && ctx.measureText(candidate).width > maxWidth) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  lines.slice(0, maxLines).forEach((line, index) => {
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
 }
 
 function drawImageContained(
@@ -112,11 +179,11 @@ function waitForFonts() {
   ]);
 }
 
-async function svgImage(svg: SVGSVGElement) {
+async function svgImage(svg: SVGSVGElement, width: number, height: number) {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  clone.setAttribute("width", "640");
-  clone.setAttribute("height", "672");
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(height));
   const variables: [string, string][] = [
     ["--color-bg", palette.bg],
     ["--color-line", "#2a354c"],
@@ -166,31 +233,29 @@ function drawMetadata(ctx: CanvasRenderingContext2D, metadata: ShareMetadata) {
     ["DATE", metadata.date],
     ["TIME", metadata.time],
   ] as const;
-  const x = [74, 690, 1075];
-  const widths = [570, 340, 450];
+  const x = [74, 760, 1080];
+  const widths = [640, 270, 446];
 
   items.forEach(([label, value], index) => {
     drawText(
       ctx,
       label,
       x[index]!,
-      174,
+      168,
       "600 15px Outfit, Segoe UI, sans-serif",
       "#9aa3b2",
     );
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x[index]!, 184, widths[index]!, 33);
-    ctx.clip();
-    drawText(
+    drawWrappedText(
       ctx,
       value,
       x[index]!,
-      211,
-      "500 25px Outfit, Segoe UI, sans-serif",
+      198,
+      widths[index]!,
+      25,
+      index === 0 ? 2 : 1,
+      "500 23px Outfit, Segoe UI, sans-serif",
       palette.cream,
     );
-    ctx.restore();
   });
 }
 
@@ -215,10 +280,37 @@ function drawLegendItem(
   );
 }
 
+function drawStat(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+) {
+  drawText(
+    ctx,
+    label.toUpperCase(),
+    x,
+    y,
+    "600 13px Outfit, Segoe UI, sans-serif",
+    "#9aa3b2",
+  );
+  drawText(
+    ctx,
+    value,
+    x,
+    y + 25,
+    "600 20px Outfit, Segoe UI, sans-serif",
+    palette.cream,
+  );
+}
+
 export async function createShareInfographic(input: ShareInfographicInput) {
   await waitForFonts();
-  const skyImage = await svgImage(input.skySvg);
+  const skyImage = await svgImage(input.skySvg, 640, 672);
+  const phaseImage = await svgImage(input.phaseSvg, 120, 120);
   const metadata = formatShareMetadata(input);
+  const skyStats = formatShareSkyStats(input);
   const canvas = document.createElement("canvas");
   canvas.width = SHARE_IMAGE_WIDTH;
   canvas.height = SHARE_IMAGE_HEIGHT;
@@ -230,7 +322,7 @@ export async function createShareInfographic(input: ShareInfographicInput) {
 
   drawText(
     ctx,
-    "ANGLES TRUE · DISTANCES SCHEMATIC",
+    "ANGLES TRUE · DISTANCES FICTION",
     74,
     62,
     "600 16px Outfit, Segoe UI, sans-serif",
@@ -310,31 +402,36 @@ export async function createShareInfographic(input: ShareInfographicInput) {
   drawLegendItem(ctx, 222, 786, palette.gold, "Ecliptic 23.4° · sunlight");
   drawLegendItem(ctx, 482, 786, palette.silver, "Moon orbit 5.1°");
 
+  drawImageContained(ctx, phaseImage, 120, 120, 1040, 292, 58, 58);
   drawText(
     ctx,
     "Local sky path",
-    1040,
-    316,
+    1114,
+    314,
     "600 24px Outfit, Segoe UI, sans-serif",
     palette.cream,
   );
   drawText(
     ctx,
-    input.phaseName,
-    1040,
-    343,
+    `${input.phaseName} · ${input.illuminationPercent}% lit`,
+    1114,
+    341,
     "400 17px Outfit, Segoe UI, sans-serif",
     "#9aa3b2",
   );
-  drawImageContained(ctx, skyImage, 640, 672, 1038, 360, 472, 394);
-  drawLegendItem(ctx, 1060, 786, palette.gold, "Sun");
-  drawLegendItem(ctx, 1150, 786, palette.silver, "Moon");
+  drawImageContained(ctx, skyImage, 640, 672, 1052, 354, 444, 310);
+  drawStat(ctx, "Altitude", skyStats.altitude, 1042, 690);
+  drawStat(ctx, "Azimuth", skyStats.azimuth, 1284, 690);
+  drawStat(ctx, "Declination", skyStats.declination, 1042, 748);
+  drawStat(ctx, "Top of path", skyStats.topOfPath, 1284, 748);
+  drawLegendItem(ctx, 1048, 808, palette.gold, "Sun");
+  drawLegendItem(ctx, 1134, 808, palette.silver, "Moon");
   drawText(
     ctx,
     "Center = zenith · rim = horizon",
-    1250,
-    786,
-    "400 15px Outfit, Segoe UI, sans-serif",
+    1230,
+    808,
+    "400 14px Outfit, Segoe UI, sans-serif",
     "#9aa3b2",
   );
 

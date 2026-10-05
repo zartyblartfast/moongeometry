@@ -10,7 +10,12 @@ function n(v: number): string {
 }
 
 /** Northern convention: waxing is bright on the right; southern observers see it mirrored. */
-export function MoonPhase({ illumination, waxing, latitude, size = 36 }: Props) {
+export function MoonPhase({
+  illumination,
+  waxing,
+  latitude,
+  size = 36,
+}: Props) {
   const r = size / 2;
   const k = Math.max(0, Math.min(1, illumination));
   const xTerm = (1 - 2 * k) * r;
@@ -32,10 +37,21 @@ export function MoonPhase({ illumination, waxing, latitude, size = 36 }: Props) 
   const half = n(size);
   const neg = n(-r);
   return (
-    <svg width={size} height={size} viewBox={`${neg} ${neg} ${half} ${half}`} aria-hidden>
+    <svg
+      data-share-moon-phase
+      width={size}
+      height={size}
+      viewBox={`${neg} ${neg} ${half} ${half}`}
+      aria-hidden
+    >
       <circle r={n(r - 0.6)} fill="var(--color-silver)" />
       <polygon points={pts.join(" ")} fill="var(--color-bg)" />
-      <circle r={n(r - 0.6)} fill="none" stroke="var(--color-line)" strokeWidth="1" />
+      <circle
+        r={n(r - 0.6)}
+        fill="none"
+        stroke="var(--color-line)"
+        strokeWidth="1"
+      />
     </svg>
   );
 }
