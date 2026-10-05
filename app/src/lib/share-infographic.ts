@@ -14,6 +14,7 @@ export type ShareMetadata = {
   location: string;
   date: string;
   time: string;
+  civilTime: string;
 };
 
 export type ShareInfographicInput = {
@@ -24,6 +25,7 @@ export type ShareInfographicInput = {
   lat: number;
   lon: number;
   placeLabel: string | null;
+  civilTimeLine: string;
   phaseName: string;
   illuminationPercent: number;
   altitudeDeg: number;
@@ -54,15 +56,17 @@ export function formatShareMetadata({
   lat,
   lon,
   placeLabel,
+  civilTimeLine,
 }: Pick<
   ShareInfographicInput,
-  "instant" | "lat" | "lon" | "placeLabel"
+  "instant" | "lat" | "lon" | "placeLabel" | "civilTimeLine"
 >): ShareMetadata {
   const coordinates = formatShareCoordinates(lat, lon);
   return {
     location: placeLabel ? `${placeLabel} · ${coordinates}` : coordinates,
     date: formatDate(instant, lon),
     time: `${timeInputValue(instant, lon)} mean solar time`,
+    civilTime: civilTimeLine,
   };
 }
 
@@ -231,10 +235,9 @@ function drawMetadata(ctx: CanvasRenderingContext2D, metadata: ShareMetadata) {
   const items = [
     ["LOCATION", metadata.location],
     ["DATE", metadata.date],
-    ["TIME", metadata.time],
   ] as const;
-  const x = [74, 760, 1080];
-  const widths = [640, 270, 446];
+  const x = [74, 760];
+  const widths = [640, 270];
 
   items.forEach(([label, value], index) => {
     drawText(
@@ -257,6 +260,31 @@ function drawMetadata(ctx: CanvasRenderingContext2D, metadata: ShareMetadata) {
       palette.cream,
     );
   });
+
+  drawText(
+    ctx,
+    "TIME",
+    1080,
+    168,
+    "600 15px Outfit, Segoe UI, sans-serif",
+    "#9aa3b2",
+  );
+  drawText(
+    ctx,
+    metadata.time,
+    1080,
+    196,
+    "500 21px Outfit, Segoe UI, sans-serif",
+    palette.cream,
+  );
+  drawText(
+    ctx,
+    metadata.civilTime,
+    1080,
+    222,
+    "500 17px Outfit, Segoe UI, sans-serif",
+    "#b8c0ce",
+  );
 }
 
 function drawLegendItem(

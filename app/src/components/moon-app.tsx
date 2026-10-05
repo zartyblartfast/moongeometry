@@ -14,6 +14,11 @@ import {
   timeInputValue,
 } from "@/lib/astro";
 import { observedViewState } from "@/lib/astronomy/observed";
+import {
+  formatCivilTime,
+  lookupTimeZone,
+  type CivilTimeInfo,
+} from "@/lib/civil-time";
 import { composeCivilTimeLine } from "@/lib/civil-time-line";
 import { resolveInitialInstant } from "@/lib/initial-instant";
 import {
@@ -301,6 +306,17 @@ export function MoonApp() {
       if (!orbitalCanvas || !skySvg || !phaseSvg)
         throw new Error("The diagrams are not ready to export yet.");
 
+      let shareCivilTime: CivilTimeInfo | null =
+        civilTime.status === "ready" && !civilTime.refreshingCoordinates
+          ? civilTime.value
+          : null;
+      if (shareCivilTime === null) {
+        const timeZoneId = await lookupTimeZone(lat, lon);
+        shareCivilTime = timeZoneId
+          ? formatCivilTime(instant, timeZoneId)
+          : null;
+      }
+
       const filename = shareInfographicFilename(instant, lon);
       const result = await createShareInfographic({
         orbitalCanvas,
@@ -310,6 +326,9 @@ export function MoonApp() {
         lat,
         lon,
         placeLabel: selectedPlace?.label ?? null,
+        civilTimeLine: shareCivilTime
+          ? composeCivilTimeLine(shareCivilTime, localParts(instant, lon).y)
+          : "Civil · unavailable",
         phaseName: sky.moon.phaseName,
         illuminationPercent: Math.round(sky.moon.illumination * 100),
         altitudeDeg: altDeg,
