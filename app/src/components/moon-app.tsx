@@ -15,6 +15,7 @@ import {
 } from "@/lib/astro";
 import { observedViewState } from "@/lib/astronomy/observed";
 import { composeCivilTimeLine } from "@/lib/civil-time-line";
+import { resolveInitialInstant } from "@/lib/initial-instant";
 import {
   locationMemoryValue,
   parseLocationMemory,
@@ -181,11 +182,7 @@ export function MoonApp() {
     setSpinHours(nextSpinHours);
     setSelectedPlace(initialLocation.place);
 
-    if (urlState.date && urlState.time) {
-      const [y, m, d] = urlState.date.split("-").map(Number);
-      const [h, min] = urlState.time.split(":").map(Number);
-      setInstant(fromLocal(y, m - 1, d, h, min, nextLon));
-    }
+    setInstant(resolveInitialInstant(urlState.date, urlState.time, nextLon));
 
     setMounted(true);
     // Run once: URL query and local storage are initialisation sources only.
@@ -426,13 +423,6 @@ export function MoonApp() {
                   <button
                     type="button"
                     className="min-h-9 rounded-full bg-surface-2 px-3 text-sm text-fg"
-                    onClick={() => setInstant(Date.now())}
-                  >
-                    Current time
-                  </button>
-                  <button
-                    type="button"
-                    className="min-h-9 rounded-full bg-surface-2 px-3 text-sm text-fg"
                     onClick={() =>
                       setInstant(nearestFullEvening(2026, 11, lon))
                     }
@@ -545,7 +535,17 @@ export function MoonApp() {
             />
           </label>
           <div className="flex flex-col gap-0.5 text-sm text-muted lg:col-span-2">
-            <label htmlFor="mean-solar-time">Mean solar time</label>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="mean-solar-time">Mean solar time</label>
+              <button
+                type="button"
+                title="Set the date and mean solar time to now"
+                onClick={() => setInstant(Date.now())}
+                className="shrink-0 rounded-md bg-surface-2 px-2 py-0.5 text-[0.68rem] font-semibold text-fg hover:bg-line"
+              >
+                Current time
+              </button>
+            </div>
             <input
               id="mean-solar-time"
               type="time"
