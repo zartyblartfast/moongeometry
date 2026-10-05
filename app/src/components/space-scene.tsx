@@ -9,7 +9,13 @@ import {
 import * as THREE from "three";
 // Natural Earth 1:50m land data are public domain: https://www.naturalearthdata.com/
 import earthLandUrl from "@/assets/earth-land.png";
-import { eclipticPole, hoopPoints, OBLIQUITY_DEG, sunBeam, type Vec3 } from "@/lib/astro";
+import {
+  eclipticPole,
+  hoopPoints,
+  OBLIQUITY_DEG,
+  sunBeam,
+  type Vec3,
+} from "@/lib/astro";
 import {
   cameraUpForEdgeOnRoll,
   cameraUpForViewMode,
@@ -21,8 +27,15 @@ import {
   snapEdgeOnRollDeg,
 } from "@/lib/edge-on-roll";
 import { ephemerisAstronomyProvider } from "@/lib/astronomy/ephemeris-provider";
-import type { AstronomyProviderSnapshot, OrbitalGeometryState } from "@/lib/astronomy/provider";
-import { EARTH_DISPLAY_Z_SCALE, earthMeshYRotation, observerOverlayScaleForCameraRadius } from "@/lib/earth-map";
+import type {
+  AstronomyProviderSnapshot,
+  OrbitalGeometryState,
+} from "@/lib/astronomy/provider";
+import {
+  EARTH_DISPLAY_Z_SCALE,
+  earthMeshYRotation,
+  observerOverlayScaleForCameraRadius,
+} from "@/lib/earth-map";
 import { palette } from "@/lib/palette";
 import { useMoon, type Snap } from "@/lib/store";
 
@@ -47,7 +60,10 @@ type Api = {
 
 function line(color: string) {
   const geom = new THREE.BufferGeometry();
-  geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+  geom.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(6), 3),
+  );
   const mat = new THREE.LineBasicMaterial({ color });
   return new THREE.Line(geom, mat);
 }
@@ -65,7 +81,10 @@ function createEarthTexture(): EarthTextureHandle {
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
-  const project = (lon: number, lat: number): [number, number] => [((lon + 180) / 360) * w, ((90 - lat) / 180) * h];
+  const project = (lon: number, lat: number): [number, number] => [
+    ((lon + 180) / 360) * w,
+    ((90 - lat) / 180) * h,
+  ];
   const land = (points: [number, number][]) => {
     ctx.beginPath();
     points.forEach(([lon, lat], i) => {
@@ -113,13 +132,71 @@ function createEarthTexture(): EarthTextureHandle {
     ctx.fillStyle = "#72a46f";
     ctx.strokeStyle = "rgba(238, 244, 220, 0.52)";
     ctx.lineWidth = 1.4;
-    land([[-168, 72], [-135, 70], [-102, 56], [-72, 50], [-55, 25], [-82, 7], [-105, 16], [-125, 34], [-152, 50]]); // North America
-    land([[-82, 12], [-62, 8], [-47, -8], [-38, -23], [-55, -55], [-72, -45], [-80, -15]]); // South America
-    land([[-10, 72], [42, 70], [82, 55], [122, 56], [154, 42], [142, 12], [106, 4], [78, 22], [42, 12], [18, 35], [-8, 36]]); // Eurasia
-    land([[-18, 34], [10, 35], [35, 14], [44, -12], [28, -35], [16, -34], [2, -8], [-12, 6]]); // Africa
-    land([[112, -10], [154, -20], [146, -42], [118, -39], [108, -24]]); // Australia
-    land([[-52, 72], [-22, 76], [-16, 62], [-44, 58]]); // Greenland
-    land([[-180, -68], [-90, -72], [0, -70], [90, -72], [180, -68], [180, -90], [-180, -90]]); // Antarctica
+    land([
+      [-168, 72],
+      [-135, 70],
+      [-102, 56],
+      [-72, 50],
+      [-55, 25],
+      [-82, 7],
+      [-105, 16],
+      [-125, 34],
+      [-152, 50],
+    ]); // North America
+    land([
+      [-82, 12],
+      [-62, 8],
+      [-47, -8],
+      [-38, -23],
+      [-55, -55],
+      [-72, -45],
+      [-80, -15],
+    ]); // South America
+    land([
+      [-10, 72],
+      [42, 70],
+      [82, 55],
+      [122, 56],
+      [154, 42],
+      [142, 12],
+      [106, 4],
+      [78, 22],
+      [42, 12],
+      [18, 35],
+      [-8, 36],
+    ]); // Eurasia
+    land([
+      [-18, 34],
+      [10, 35],
+      [35, 14],
+      [44, -12],
+      [28, -35],
+      [16, -34],
+      [2, -8],
+      [-12, 6],
+    ]); // Africa
+    land([
+      [112, -10],
+      [154, -20],
+      [146, -42],
+      [118, -39],
+      [108, -24],
+    ]); // Australia
+    land([
+      [-52, 72],
+      [-22, 76],
+      [-16, 62],
+      [-44, 58],
+    ]); // Greenland
+    land([
+      [-180, -68],
+      [-90, -72],
+      [0, -70],
+      [90, -72],
+      [180, -68],
+      [180, -90],
+      [-180, -90],
+    ]); // Antarctica
     ctx.restore();
     drawGraticule();
   };
@@ -242,17 +319,30 @@ function chevronPrism(length: number, width: number, depth: number) {
     "position",
     new THREE.BufferAttribute(
       new Float32Array([
-        0, hl, hd, hw, -hl, hd, -hw, -hl, hd,
-        0, hl, -hd, hw, -hl, -hd, -hw, -hl, -hd,
+        0,
+        hl,
+        hd,
+        hw,
+        -hl,
+        hd,
+        -hw,
+        -hl,
+        hd,
+        0,
+        hl,
+        -hd,
+        hw,
+        -hl,
+        -hd,
+        -hw,
+        -hl,
+        -hd,
       ]),
       3,
     ),
   );
   g.setIndex([
-    0, 1, 2, 5, 4, 3,
-    0, 3, 4, 0, 4, 1,
-    0, 2, 5, 0, 5, 3,
-    1, 4, 5, 1, 5, 2,
+    0, 1, 2, 5, 4, 3, 0, 3, 4, 0, 4, 1, 0, 2, 5, 0, 5, 3, 1, 4, 5, 1, 5, 2,
   ]);
   return g;
 }
@@ -290,9 +380,18 @@ function project(p: Vec3, w: number, h: number): [number, number] {
 }
 
 function ringPath(units: Vec3[], radius: number, w: number, h: number) {
-  const pts = units.map((u) => project([u[0] * radius, u[1] * radius, u[2] * radius], w, h));
+  const pts = units.map((u) =>
+    project([u[0] * radius, u[1] * radius, u[2] * radius], w, h),
+  );
   const [x, y] = pts[0]!;
-  return `M ${x.toFixed(1)} ${y.toFixed(1)} ` + pts.slice(1).map(([px, py]) => `L ${px.toFixed(1)} ${py.toFixed(1)}`).join(" ") + " Z";
+  return (
+    `M ${x.toFixed(1)} ${y.toFixed(1)} ` +
+    pts
+      .slice(1)
+      .map(([px, py]) => `L ${px.toFixed(1)} ${py.toFixed(1)}`)
+      .join(" ") +
+    " Z"
+  );
 }
 
 function arrow2d(tail: Vec3, head: Vec3, w: number, h: number) {
@@ -315,7 +414,13 @@ function arrow2d(tail: Vec3, head: Vec3, w: number, h: number) {
   };
 }
 
-export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProviderSnapshot; orbitInstant: number }) {
+export function SpaceScene({
+  snapshot,
+  orbitInstant,
+}: {
+  snapshot: AstronomyProviderSnapshot;
+  orbitInstant: number;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
   const drawRef = useRef<(rot: number, orb: number) => void>(() => {});
@@ -332,13 +437,19 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       sunGeocentricUnit: snapshot.sun.geocentricUnit,
       moonGeocentricUnit: snapshot.moon.geocentricUnit,
     };
-  }, [orbitInstant, snapshot.d, snapshot.moon.geocentricUnit, snapshot.sun.geocentricUnit]);
+  }, [
+    orbitInstant,
+    snapshot.d,
+    snapshot.moon.geocentricUnit,
+    snapshot.sun.geocentricUnit,
+  ]);
   const [failed, setFailed] = useState(false);
   const [webglReady, setWebglReady] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("oblique");
   const [edgeRollDeg, setEdgeRollDeg] = useState(0);
   const edgeRollDegRef = useRef(0);
-  const [overlayProjection, setOverlayProjection] = useState<OverlayProjection | null>(null);
+  const [overlayProjection, setOverlayProjection] =
+    useState<OverlayProjection | null>(null);
   const [rollHovered, setRollHovered] = useState(false);
   const [rollFocused, setRollFocused] = useState(false);
   const [rollInteracting, setRollInteracting] = useState(false);
@@ -407,12 +518,20 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     if (!host) return;
     const canvas = document.createElement("canvas");
     canvas.className = "absolute inset-0 block h-full w-full touch-none";
-    canvas.setAttribute("aria-label", "Rotatable Earth with equator, ecliptic, and Moon orbit");
+    canvas.setAttribute(
+      "aria-label",
+      "Rotatable Earth with equator, ecliptic, and Moon orbit",
+    );
     host.appendChild(canvas);
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: false,
+        preserveDrawingBuffer: true,
+      });
     } catch {
       canvas.remove();
       setFailed(true);
@@ -451,8 +570,15 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       sample[0]!.head[2] - sample[0]!.tail[2],
     );
     const shaftLen = fullLen - HEAD_LEN;
-    const ink = new THREE.MeshBasicMaterial({ color: palette.gold, side: THREE.DoubleSide });
-    const shaftGeom = new THREE.BoxGeometry(SHAFT_W, shaftLen + 0.012, INK_DEPTH);
+    const ink = new THREE.MeshBasicMaterial({
+      color: palette.gold,
+      side: THREE.DoubleSide,
+    });
+    const shaftGeom = new THREE.BoxGeometry(
+      SHAFT_W,
+      shaftLen + 0.012,
+      INK_DEPTH,
+    );
     const headGeom = chevronPrism(HEAD_LEN, HEAD_W, INK_DEPTH);
     const shafts = sample.map(() => {
       const mesh = new THREE.Mesh(shaftGeom, ink);
@@ -474,7 +600,10 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     );
     const figure = new THREE.Mesh(
       new THREE.CircleGeometry(0.045, 24),
-      new THREE.MeshBasicMaterial({ color: palette.cream, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({
+        color: palette.cream,
+        side: THREE.DoubleSide,
+      }),
     );
     const pole = new THREE.Mesh(
       new THREE.SphereGeometry(0.055, 16, 12),
@@ -483,7 +612,12 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     pole.position.set(0, 1.32, 0);
     const plate = new THREE.Mesh(
       new THREE.RingGeometry(0.16, 0.19, 48),
-      new THREE.MeshBasicMaterial({ color: palette.cream, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }),
+      new THREE.MeshBasicMaterial({
+        color: palette.cream,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+      }),
     );
     const moon = new THREE.Mesh(
       new THREE.SphereGeometry(0.11, 32, 24),
@@ -537,11 +671,13 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         eclipticNorth,
         localEdgeRollDeg,
       );
-      camera.up.fromArray(cameraUpForViewMode(
-        localViewMode,
-        [camera.up.x, camera.up.y, camera.up.z],
-        edgeCameraUp,
-      ));
+      camera.up.fromArray(
+        cameraUpForViewMode(
+          localViewMode,
+          [camera.up.x, camera.up.y, camera.up.z],
+          edgeCameraUp,
+        ),
+      );
       camera.lookAt(0, 0, 0);
       const overlayScale = observerOverlayScaleForCameraRadius(radius);
       figure.scale.setScalar(overlayScale.figure);
@@ -602,14 +738,18 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         setEdgeRollDeg(0);
       }
       theta -= (e.clientX - lx) * 0.008;
-      phi = Math.min(Math.PI - 0.08, Math.max(0.12, phi + (e.clientY - ly) * 0.008));
+      phi = Math.min(
+        Math.PI - 0.08,
+        Math.max(0.12, phi + (e.clientY - ly) * 0.008),
+      );
       lx = e.clientX;
       ly = e.clientY;
       place();
     };
     const up = (e: PointerEvent) => {
       dragging = false;
-      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      if (canvas.hasPointerCapture(e.pointerId))
+        canvas.releasePointerCapture(e.pointerId);
       if (canvasPointerId === e.pointerId) canvasPointerId = null;
     };
     const wheel = (e: WheelEvent) => {
@@ -637,36 +777,71 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       const live = useMoon.getState();
       if (cachedOrbitalGeometry.orbitInstant !== orbitAt) {
         const sharedGeometry = sharedGeometryRef.current;
-        cachedOrbitalGeometry = sharedGeometry.orbitInstant === orbitAt
-          ? sharedGeometry
-          : ephemerisAstronomyProvider.orbitalGeometry(orbitAt);
+        cachedOrbitalGeometry =
+          sharedGeometry.orbitInstant === orbitAt
+            ? sharedGeometry
+            : ephemerisAstronomyProvider.orbitalGeometry(orbitAt);
       }
       const key = `${Math.floor(cachedOrbitalGeometry.d)}`;
       if (key !== hoopKey) {
         hoopKey = key;
-        setLoop(equator, hoopPoints("equator", cachedOrbitalGeometry.d, 128), HOOP);
-        setLoop(ecliptic, hoopPoints("ecliptic", cachedOrbitalGeometry.d, 128), HOOP);
+        setLoop(
+          equator,
+          hoopPoints("equator", cachedOrbitalGeometry.d, 128),
+          HOOP,
+        );
+        setLoop(
+          ecliptic,
+          hoopPoints("ecliptic", cachedOrbitalGeometry.d, 128),
+          HOOP,
+        );
         setLoop(lunar, hoopPoints("moon", cachedOrbitalGeometry.d, 160), HOOP);
         setSeg(axis, [0, -1.25, 0], [0, 1.32, 0]);
       }
       const sunUnit = cachedOrbitalGeometry.sunGeocentricUnit;
       const moonUnit = cachedOrbitalGeometry.moonGeocentricUnit;
-      const moonPos: Vec3 = [moonUnit[0] * HOOP, moonUnit[1] * HOOP, moonUnit[2] * HOOP];
-      const greenwich = ephemerisAstronomyProvider.observerZenith(rotation, 0, 0);
-      earth.rotation.y = earthMeshYRotation(Math.atan2(greenwich[2], greenwich[0]));
+      const moonPos: Vec3 = [
+        moonUnit[0] * HOOP,
+        moonUnit[1] * HOOP,
+        moonUnit[2] * HOOP,
+      ];
+      const greenwich = ephemerisAstronomyProvider.observerZenith(
+        rotation,
+        0,
+        0,
+      );
+      earth.rotation.y = earthMeshYRotation(
+        Math.atan2(greenwich[2], greenwich[0]),
+      );
       // Shader uniforms are world-space and do not inherit scene.scale.
       (earthMaterial.uniforms.sunDir.value as THREE.Vector3)
         .set(sunUnit[0], sunUnit[1], EARTH_DISPLAY_Z_SCALE * sunUnit[2])
         .normalize();
       moon.position.set(moonPos[0], moonPos[1], moonPos[2]);
-      const away = new THREE.Vector3(-sunUnit[0], -sunUnit[1], -sunUnit[2]).normalize();
+      const away = new THREE.Vector3(
+        -sunUnit[0],
+        -sunUnit[1],
+        -sunUnit[2],
+      ).normalize();
       dark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), away);
       sunLight.position.set(sunUnit[0] * 8, sunUnit[1] * 8, sunUnit[2] * 8);
-      const zen = new THREE.Vector3(...ephemerisAstronomyProvider.observerZenith(rotation, live.lat, live.lon));
+      const zen = new THREE.Vector3(
+        ...ephemerisAstronomyProvider.observerZenith(
+          rotation,
+          live.lat,
+          live.lon,
+        ),
+      );
       figure.position.copy(zen).multiplyScalar(EARTH + 0.025);
-      figure.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), zen.clone().normalize());
+      figure.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        zen.clone().normalize(),
+      );
       plate.position.copy(zen).multiplyScalar(EARTH + 0.012);
-      plate.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), zen.clone().normalize());
+      plate.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        zen.clone().normalize(),
+      );
       setSeg(sight, [zen.x * EARTH, zen.y * EARTH, zen.z * EARTH], moonPos);
       const beam = sunBeam(sunUnit);
       sunV.set(sunUnit[0], sunUnit[1], sunUnit[2]);
@@ -678,17 +853,25 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         const ray = beam[i]!;
         const shaft = shafts[i]!;
         const head = heads[i]!;
-        pos.set(ray.tail[0], ray.tail[1], ray.tail[2]).addScaledVector(dir, (shaftLen + 0.012) / 2);
+        pos
+          .set(ray.tail[0], ray.tail[1], ray.tail[2])
+          .addScaledVector(dir, (shaftLen + 0.012) / 2);
         shaft.position.copy(pos);
         shaft.quaternion.copy(aim);
-        pos.set(ray.head[0], ray.head[1], ray.head[2]).addScaledVector(dir, -HEAD_LEN / 2);
+        pos
+          .set(ray.head[0], ray.head[1], ray.head[2])
+          .addScaledVector(dir, -HEAD_LEN / 2);
         head.position.copy(pos);
         head.quaternion.copy(aim);
       }
       const mid = beam[2]!;
       const reach = Math.hypot(mid.head[0], mid.head[1], mid.head[2]) || 1;
       const stop = (EARTH + 0.1) / reach;
-      setSeg(guide, mid.head, [mid.head[0] * stop, mid.head[1] * stop, mid.head[2] * stop]);
+      setSeg(guide, mid.head, [
+        mid.head[0] * stop,
+        mid.head[1] * stop,
+        mid.head[2] * stop,
+      ]);
       renderer.render(scene, camera);
     };
     drawRef.current = draw;
@@ -716,7 +899,10 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       canvas.removeEventListener("wheel", wheel);
-      if (canvasPointerId !== null && canvas.hasPointerCapture(canvasPointerId)) {
+      if (
+        canvasPointerId !== null &&
+        canvas.hasPointerCapture(canvasPointerId)
+      ) {
         canvas.releasePointerCapture(canvasPointerId);
       }
       shaftGeom.dispose();
@@ -737,23 +923,28 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
     apiRef.current?.placeSnap(snap);
   }, [snap, snapTick]);
 
-  useEffect(() => () => {
-    const pointerId = activeRollPointerRef.current;
-    const target = activeRollTargetRef.current;
-    if (pointerId !== null && target?.hasPointerCapture(pointerId)) {
-      target.releasePointerCapture(pointerId);
-    }
-    activeRollPointerRef.current = null;
-    activeRollTargetRef.current = null;
-  }, [viewMode]);
+  useEffect(
+    () => () => {
+      const pointerId = activeRollPointerRef.current;
+      const target = activeRollTargetRef.current;
+      if (pointerId !== null && target?.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId);
+      }
+      activeRollPointerRef.current = null;
+      activeRollTargetRef.current = null;
+    },
+    [viewMode],
+  );
 
   const rollFromPointerEvent = (event: ReactPointerEvent<SVGCircleElement>) => {
     if (!overlayProjection || !hostRef.current) return edgeRollDegRef.current;
     const rect = hostRef.current.getBoundingClientRect();
-    return clampEdgeOnRollDeg(rollDegFromPointer(
-      overlayProjection.centre,
-      [event.clientX - rect.left, event.clientY - rect.top],
-    ));
+    return clampEdgeOnRollDeg(
+      rollDegFromPointer(overlayProjection.centre, [
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      ]),
+    );
   };
   const onRollPointerDown = (event: ReactPointerEvent<SVGCircleElement>) => {
     event.preventDefault();
@@ -802,13 +993,27 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
   const reach = Math.hypot(mid.head[0], mid.head[1], mid.head[2]) || 1;
   const stop = (EARTH + 0.1) / reach;
   const guideA = project(mid.head, w, h);
-  const guideB = project([mid.head[0] * stop, mid.head[1] * stop, mid.head[2] * stop], w, h);
+  const guideB = project(
+    [mid.head[0] * stop, mid.head[1] * stop, mid.head[2] * stop],
+    w,
+    h,
+  );
   const guidePath = `M ${guideA[0].toFixed(1)} ${guideA[1].toFixed(1)} L ${guideB[0].toFixed(1)} ${guideB[1].toFixed(1)}`;
-  const moonDot = project([snapshot.moon.geocentricUnit[0] * HOOP, snapshot.moon.geocentricUnit[1] * HOOP, snapshot.moon.geocentricUnit[2] * HOOP], w, h);
+  const moonDot = project(
+    [
+      snapshot.moon.geocentricUnit[0] * HOOP,
+      snapshot.moon.geocentricUnit[1] * HOOP,
+      snapshot.moon.geocentricUnit[2] * HOOP,
+    ],
+    w,
+    h,
+  );
   const earthDot = project([0, 0, 0], w, h);
 
-  const annotationVisible = edgeRollDeg > 0 || rollHovered || rollFocused || rollInteracting;
-  const showFullSweep = edgeRollDeg === 0 && !rollInteracting && (rollHovered || rollFocused);
+  const annotationVisible =
+    edgeRollDeg > 0 || rollHovered || rollFocused || rollInteracting;
+  const showFullSweep =
+    edgeRollDeg === 0 && !rollInteracting && (rollHovered || rollFocused);
   const arcAngleDeg = showFullSweep ? OBLIQUITY_DEG : edgeRollDeg;
   const arcAngleRad = (arcAngleDeg * Math.PI) / 180;
   const valueAngleRad = (edgeRollDeg * Math.PI) / 180;
@@ -837,20 +1042,60 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
       : 0.58;
 
   return (
-    <div ref={hostRef} className="relative h-full w-full">
-      <svg viewBox={`0 0 ${w} ${h}`} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
-        <path d={eq} fill="none" stroke="var(--color-equator)" strokeWidth={2.6} />
+    <div
+      ref={hostRef}
+      data-share-orbit-scene
+      className="relative h-full w-full"
+    >
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      >
+        <path
+          d={eq}
+          fill="none"
+          stroke="var(--color-equator)"
+          strokeWidth={2.6}
+        />
         <path d={ec} fill="none" stroke="var(--color-gold)" strokeWidth={2.6} />
-        <path d={mo} fill="none" stroke="var(--color-silver)" strokeWidth={2.4} />
-        <path d={guidePath} fill="none" stroke="var(--color-gold)" strokeWidth={1.25} opacity={0.55} />
+        <path
+          d={mo}
+          fill="none"
+          stroke="var(--color-silver)"
+          strokeWidth={2.4}
+        />
+        <path
+          d={guidePath}
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth={1.25}
+          opacity={0.55}
+        />
         {arrows.map((ray, i) => (
           <g key={i}>
-            <path d={ray.line} fill="none" stroke="var(--color-gold)" strokeWidth={2.4} strokeLinecap="round" />
+            <path
+              d={ray.line}
+              fill="none"
+              stroke="var(--color-gold)"
+              strokeWidth={2.4}
+              strokeLinecap="round"
+            />
             <path d={ray.head} fill="var(--color-gold)" />
           </g>
         ))}
-        <circle cx={earthDot[0].toFixed(1)} cy={earthDot[1].toFixed(1)} r={18} fill="var(--color-line)" />
-        <circle cx={moonDot[0].toFixed(1)} cy={moonDot[1].toFixed(1)} r={6} fill="var(--color-silver)" />
+        <circle
+          cx={earthDot[0].toFixed(1)}
+          cy={earthDot[1].toFixed(1)}
+          r={18}
+          fill="var(--color-line)"
+        />
+        <circle
+          cx={moonDot[0].toFixed(1)}
+          cy={moonDot[1].toFixed(1)}
+          r={6}
+          fill="var(--color-silver)"
+        />
       </svg>
       {webglReady && !failed && viewMode === "edge" && overlayProjection ? (
         <svg
@@ -917,7 +1162,9 @@ export function SpaceScene({ snapshot, orbitInstant }: { snapshot: AstronomyProv
         </svg>
       ) : null}
       {failed ? (
-        <p className="pointer-events-none absolute right-3 bottom-3 text-xs text-muted">WebGL is off — this is the flat stand-in.</p>
+        <p className="pointer-events-none absolute right-3 bottom-3 text-xs text-muted">
+          WebGL is off — this is the flat stand-in.
+        </p>
       ) : null}
     </div>
   );

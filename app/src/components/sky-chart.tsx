@@ -9,13 +9,24 @@ type Props = {
 
 const VB = 320;
 
-function project(altDeg: number, azDeg: number, cx: number, cy: number, radius: number) {
+function project(
+  altDeg: number,
+  azDeg: number,
+  cx: number,
+  cy: number,
+  radius: number,
+) {
   const r = ((90 - altDeg) / 90) * radius;
   const az = (azDeg * Math.PI) / 180;
   return { x: cx + r * Math.sin(az), y: cy - r * Math.cos(az) };
 }
 
-function runs(samples: { altDeg: number; azDeg: number }[], cx: number, cy: number, radius: number) {
+function runs(
+  samples: { altDeg: number; azDeg: number }[],
+  cx: number,
+  cy: number,
+  radius: number,
+) {
   const groups: string[] = [];
   let current: string[] = [];
   const flush = () => {
@@ -44,15 +55,27 @@ export function SkyChart({ snapshot, moonPath, sunPath }: Props) {
   const sunRuns = runs(sun, cx, cy, radius);
   const moonAlt = snapshot.moon.horizontal.altitudeDeg;
   const moonAz = snapshot.moon.horizontal.azimuthDeg;
-  const now = moonAlt > -0.4 ? project(Math.max(moonAlt, 0), moonAz, cx, cy, radius) : null;
+  const now =
+    moonAlt > -0.4
+      ? project(Math.max(moonAlt, 0), moonAz, cx, cy, radius)
+      : null;
   const sunAlt = snapshot.sun.horizontal.altitudeDeg;
   const sunAz = snapshot.sun.horizontal.azimuthDeg;
-  const sunNow = sunAlt > -0.4 ? project(Math.max(sunAlt, 0), sunAz, cx, cy, radius) : null;
-  const topSample = moonPath.samples.reduce<{ altDeg: number; azDeg: number } | null>(
-    (best, sample) => (sample.altDeg > -0.4 && (!best || sample.altDeg > best.altDeg) ? sample : best),
+  const sunNow =
+    sunAlt > -0.4 ? project(Math.max(sunAlt, 0), sunAz, cx, cy, radius) : null;
+  const topSample = moonPath.samples.reduce<{
+    altDeg: number;
+    azDeg: number;
+  } | null>(
+    (best, sample) =>
+      sample.altDeg > -0.4 && (!best || sample.altDeg > best.altDeg)
+        ? sample
+        : best,
     null,
   );
-  const top = topSample ? project(Math.max(topSample.altDeg, 0), topSample.azDeg, cx, cy, radius) : null;
+  const top = topSample
+    ? project(Math.max(topSample.altDeg, 0), topSample.azDeg, cx, cy, radius)
+    : null;
   const rings = [30, 60];
   const cards = [
     { label: "N", x: cx, y: cy - radius - 14 },
@@ -62,8 +85,21 @@ export function SkyChart({ snapshot, moonPath, sunPath }: Props) {
   ];
 
   return (
-    <svg viewBox={`0 0 ${VB} ${VB + 16}`} className="h-full w-full" role="img" aria-label="Tonight’s Moon and Sun paths on the sky">
-      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="var(--color-line)" strokeWidth={1.25} />
+    <svg
+      data-share-sky-chart
+      viewBox={`0 0 ${VB} ${VB + 16}`}
+      className="h-full w-full"
+      role="img"
+      aria-label="Tonight’s Moon and Sun paths on the sky"
+    >
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill="none"
+        stroke="var(--color-line)"
+        strokeWidth={1.25}
+      />
       {rings.map((alt) => {
         const ringRadius = ((90 - alt) / 90) * radius;
         return (
@@ -100,18 +136,46 @@ export function SkyChart({ snapshot, moonPath, sunPath }: Props) {
         horizon
       </text>
       {cards.map((c) => (
-        <text key={c.label} x={c.x} y={c.y} textAnchor="middle" fill="var(--color-muted)" fontSize={12} fontFamily="Outfit, sans-serif">
+        <text
+          key={c.label}
+          x={c.x}
+          y={c.y}
+          textAnchor="middle"
+          fill="var(--color-muted)"
+          fontSize={12}
+          fontFamily="Outfit, sans-serif"
+        >
           {c.label}
         </text>
       ))}
-      <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--color-muted)" fontSize={11} fontFamily="Outfit, sans-serif">
+      <text
+        x={cx}
+        y={cy + 4}
+        textAnchor="middle"
+        fill="var(--color-muted)"
+        fontSize={11}
+        fontFamily="Outfit, sans-serif"
+      >
         zenith
       </text>
       {sunRuns.map((d, i) => (
-        <polyline key={`s${i}`} points={d} fill="none" stroke="var(--color-gold)" strokeWidth={1.5} strokeDasharray="4 4" />
+        <polyline
+          key={`s${i}`}
+          points={d}
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth={1.5}
+          strokeDasharray="4 4"
+        />
       ))}
       {moonRuns.map((d, i) => (
-        <polyline key={`m${i}`} points={d} fill="none" stroke="var(--color-silver)" strokeWidth={2.25} />
+        <polyline
+          key={`m${i}`}
+          points={d}
+          fill="none"
+          stroke="var(--color-silver)"
+          strokeWidth={2.25}
+        />
       ))}
       {top && (
         <g>
