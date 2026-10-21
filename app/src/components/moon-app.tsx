@@ -361,11 +361,19 @@ export function MoonApp() {
             </p>
             <h1 className="font-display text-3xl text-fg">Moon Geometry</h1>
           </div>
-          <p className="max-w-2xl text-sm leading-5 text-muted lg:text-right">
-            {
-              "See how the Moon’s orbit and declination shape its path across your local sky for any latitude, longitude, date and mean solar time."
-            }
-          </p>
+          <div className="max-w-2xl text-sm leading-5 text-muted lg:text-right">
+            <p>
+              {
+                "See how the Moon’s orbit and declination shape its path across your local sky for any latitude, longitude, date and mean solar time."
+              }
+            </p>
+            <a
+              href="/guide/"
+              className="mt-1 inline-block text-xs font-semibold text-gold underline decoration-gold/40 underline-offset-4 hover:text-fg"
+            >
+              How it works
+            </a>
+          </div>
         </header>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">

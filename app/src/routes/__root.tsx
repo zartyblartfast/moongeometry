@@ -23,7 +23,6 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#0c1220" },
     ],
     links: [
-      { rel: "canonical", href: "https://moongeometry.com/" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
