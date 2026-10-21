@@ -1,4 +1,6 @@
 {
   "title": "Moon Geometry",
+  "ogTitle": "Moon Path Visualizer | Moon Geometry",
+  "description": "Explore how the Moon’s orbit, declination, latitude, date and time shape its path across your local sky with an interactive visualizer.",
   "card": "custom"
 }
