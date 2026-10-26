@@ -128,7 +128,7 @@ export function PlaceSearch({
         position.
       </span>
       <span role="status" aria-live="polite" className="text-xs text-muted">
-        {currentDeviceLocationMessage(locationSource)}
+        {currentDeviceLocationMessage(locationSource, lat, lon)}
       </span>
       {(results.length > 0 || message) && (
         <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border border-line bg-bg/95 p-2 text-xs shadow-xl">

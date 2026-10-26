@@ -126,7 +126,14 @@ export function currentDeviceLocationAvailable(
 
 export function currentDeviceLocationMessage(
   state: ViewingLocationSourceState,
+  lat: number,
+  lon: number,
 ): string {
+  if (state.status === "current-device") {
+    const latitude = privacyRoundedCoordinate(lat);
+    const longitude = privacyRoundedCoordinate(lon);
+    return `Using your location · ${Math.abs(latitude).toFixed(3)}° ${latitude < 0 ? "S" : "N"}, ${Math.abs(longitude).toFixed(3)}° ${longitude < 0 ? "W" : "E"}`;
+  }
   if (state.status !== "unavailable") return "";
   if (state.reason === "denied") return "Location access was denied.";
   if (state.reason === "insecure-context")

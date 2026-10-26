@@ -2,11 +2,48 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { locationMemoryValue } from "./location-memory.ts";
 import {
+  currentDeviceLocationMessage,
   initialViewingLocationSource,
   roundDeviceLocation,
   requestCurrentDevicePosition,
   transitionViewingLocationSource,
 } from "./viewing-location.ts";
+
+test("current-device confirmation shows rounded coordinates with compass directions", () => {
+  for (const [lat, lon, expected] of [
+    [51.507, -0.128, "Using your location · 51.507° N, 0.128° W"],
+    [-33.869, 151.209, "Using your location · 33.869° S, 151.209° E"],
+    [-0.0004, -0, "Using your location · 0.000° N, 0.000° E"],
+    [90, -180, "Using your location · 90.000° N, 180.000° W"],
+  ] as const) {
+    assert.equal(
+      currentDeviceLocationMessage({ status: "current-device" }, lat, lon),
+      expected,
+    );
+  }
+});
+
+test("location confirmation disappears on search or manual changes and preserves failure messages", () => {
+  for (const change of ["search", "manual"] as const) {
+    const { state } = transitionViewingLocationSource(
+      { status: "current-device" },
+      { type: "external-change", change },
+    );
+    assert.equal(currentDeviceLocationMessage(state, 51.507, -0.128), "");
+  }
+  assert.equal(
+    currentDeviceLocationMessage({ status: "requesting" }, 0, 0),
+    "",
+  );
+  assert.equal(
+    currentDeviceLocationMessage(
+      { status: "unavailable", reason: "denied" },
+      0,
+      0,
+    ),
+    "Location access was denied.",
+  );
+});
 
 test("device locations are rounded to privacy precision with finite range checks", () => {
   assert.deepEqual(roundDeviceLocation(51.501234, -0.125876), {
