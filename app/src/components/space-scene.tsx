@@ -37,6 +37,11 @@ import {
   observerOverlayScaleForCameraRadius,
 } from "@/lib/earth-map";
 import { palette } from "@/lib/palette";
+import {
+  createOrbitalLine,
+  disposeOrbitalLine,
+  setOrbitalLoop,
+} from "@/lib/orbital-lines";
 import { useMoon, type Snap } from "@/lib/store";
 
 const HOOP = 2.25;
@@ -279,22 +284,6 @@ function createEarthMaterial(map: THREE.Texture) {
       }
     `,
   });
-}
-
-function setLoop(mesh: THREE.Line, units: Vec3[], radius: number) {
-  const data = new Float32Array((units.length + 1) * 3);
-  units.forEach((p, i) => {
-    data[i * 3] = p[0] * radius;
-    data[i * 3 + 1] = p[1] * radius;
-    data[i * 3 + 2] = p[2] * radius;
-  });
-  const last = units.length;
-  data[last * 3] = data[0]!;
-  data[last * 3 + 1] = data[1]!;
-  data[last * 3 + 2] = data[2]!;
-  mesh.geometry.dispose();
-  mesh.geometry = new THREE.BufferGeometry();
-  mesh.geometry.setAttribute("position", new THREE.BufferAttribute(data, 3));
 }
 
 function setSeg(mesh: THREE.Line, a: Vec3, b: Vec3) {
@@ -551,9 +540,11 @@ export function SpaceScene({
     const sunLight = new THREE.DirectionalLight(0xfff4dd, 1.15);
     scene.add(sunLight);
 
-    const equator = line(palette.equator);
-    const ecliptic = line(palette.gold);
-    const lunar = line(palette.silver);
+    const gl = renderer.getContext();
+    const lineCoverage = gl.getParameter(gl.SAMPLES) > 1;
+    const equator = createOrbitalLine(palette.equator, lineCoverage);
+    const ecliptic = createOrbitalLine(palette.gold, lineCoverage);
+    const lunar = createOrbitalLine(palette.silver, lineCoverage);
     const axis = line(palette.cream);
     const sight = line(palette.silver);
     (sight.material as THREE.LineBasicMaterial).transparent = true;
@@ -785,17 +776,21 @@ export function SpaceScene({
       const key = `${Math.floor(cachedOrbitalGeometry.d)}`;
       if (key !== hoopKey) {
         hoopKey = key;
-        setLoop(
+        setOrbitalLoop(
           equator,
           hoopPoints("equator", cachedOrbitalGeometry.d, 128),
           HOOP,
         );
-        setLoop(
+        setOrbitalLoop(
           ecliptic,
           hoopPoints("ecliptic", cachedOrbitalGeometry.d, 128),
           HOOP,
         );
-        setLoop(lunar, hoopPoints("moon", cachedOrbitalGeometry.d, 160), HOOP);
+        setOrbitalLoop(
+          lunar,
+          hoopPoints("moon", cachedOrbitalGeometry.d, 160),
+          HOOP,
+        );
         setSeg(axis, [0, -1.25, 0], [0, 1.32, 0]);
       }
       const sunUnit = cachedOrbitalGeometry.sunGeocentricUnit;
@@ -911,6 +906,9 @@ export function SpaceScene({
       earthMaterial.dispose();
       earthTextureHandle.cancelLoad();
       earthTexture.dispose();
+      disposeOrbitalLine(equator);
+      disposeOrbitalLine(ecliptic);
+      disposeOrbitalLine(lunar);
       renderer.dispose();
       renderer.forceContextLoss();
       canvas.remove();
