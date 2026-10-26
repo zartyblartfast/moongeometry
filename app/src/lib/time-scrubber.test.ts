@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fromLocal, localParts } from "./astro.ts";
 import {
@@ -44,4 +45,15 @@ test("time scrubber clamps values to the selected day", () => {
     ),
     23 * 60 + 59,
   );
+});
+
+test("time scrubber keeps a full touch target on every coarse-pointer viewport", () => {
+  const source = readFileSync(
+    new URL("../components/time-scrubber.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /className="[^"]*h-9[^"]*touch-pan-y[^"]*"/);
+  assert.doesNotMatch(source, /sm:h-3/);
+  assert.match(source, /\[@media\(pointer:fine\)\]:h-3/);
 });

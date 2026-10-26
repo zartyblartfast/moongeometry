@@ -46,7 +46,7 @@ export function TimeScrubber({ minute, onChange }: Props) {
         onKeyDown={onKeyDown}
         aria-label="Scrub mean solar time through the selected day"
         aria-valuetext={formatTimeScrubberValue(minute)}
-        className="h-3 w-full accent-gold"
+        className="h-9 w-full touch-pan-y accent-gold [@media(pointer:fine)]:h-3"
       />
       <div
         aria-hidden="true"
