@@ -1,15 +1,31 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { searchPlaces, type PlaceResult } from "@/lib/geocode";
-import { rememberedPlaceForCoordinates, type RememberedPlace } from "@/lib/location-memory";
+import {
+  rememberedPlaceForCoordinates,
+  type RememberedPlace,
+} from "@/lib/location-memory";
+import {
+  currentDeviceLocationMessage,
+  type ViewingLocationSourceState,
+} from "@/lib/viewing-location";
 
 type PlaceSearchProps = {
   lat: number;
   lon: number;
   selectedPlace: RememberedPlace | null;
+  locationSource: ViewingLocationSourceState;
+  onUseCurrentLocation: () => void;
   onSelect: (place: PlaceResult) => void;
 };
 
-export function PlaceSearch({ lat, lon, selectedPlace, onSelect }: PlaceSearchProps) {
+export function PlaceSearch({
+  lat,
+  lon,
+  selectedPlace,
+  locationSource,
+  onUseCurrentLocation,
+  onSelect,
+}: PlaceSearchProps) {
   const [query, setQuery] = useState(selectedPlace?.label ?? "");
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [message, setMessage] = useState("");
@@ -17,11 +33,19 @@ export function PlaceSearch({ lat, lon, selectedPlace, onSelect }: PlaceSearchPr
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    const matchingPlace = rememberedPlaceForCoordinates(selectedPlace, lat, lon);
-    setQuery(matchingPlace?.label ?? "");
+    const matchingPlace = rememberedPlaceForCoordinates(
+      selectedPlace,
+      lat,
+      lon,
+    );
+    setQuery(
+      locationSource.status === "current-device"
+        ? "Current location"
+        : (matchingPlace?.label ?? ""),
+    );
     setResults([]);
     setMessage("");
-  }, [lat, lon, selectedPlace]);
+  }, [lat, lon, locationSource.status, selectedPlace]);
 
   async function runSearch() {
     const normalised = query.trim().replace(/\s+/g, " ");
@@ -63,9 +87,12 @@ export function PlaceSearch({ lat, lon, selectedPlace, onSelect }: PlaceSearchPr
   }
 
   return (
-    <form className="relative flex flex-col gap-1 text-sm text-muted sm:col-span-2 lg:col-span-2" onSubmit={submit}>
-      <span>Place</span>
-      <div className="flex gap-2">
+    <form
+      className="relative flex flex-col gap-1 text-sm text-muted sm:col-span-2 lg:col-span-2"
+      onSubmit={submit}
+    >
+      <span>Viewing location</span>
+      <div className="flex flex-wrap gap-2">
         <input
           type="search"
           value={query}
@@ -75,8 +102,19 @@ export function PlaceSearch({ lat, lon, selectedPlace, onSelect }: PlaceSearchPr
             setMessage("");
           }}
           placeholder="Town or place"
-          className="min-h-9 min-w-0 flex-1 rounded-lg bg-surface-2 px-3 text-fg"
+          className="min-h-9 min-w-40 flex-1 rounded-lg bg-surface-2 px-3 text-fg"
         />
+        <button
+          type="button"
+          onClick={onUseCurrentLocation}
+          disabled={locationSource.status === "requesting"}
+          aria-busy={locationSource.status === "requesting"}
+          className="min-h-10 rounded-lg bg-surface-2 px-3 text-xs font-semibold text-fg hover:bg-line disabled:cursor-wait disabled:opacity-70"
+        >
+          {locationSource.status === "requesting"
+            ? "Locating…"
+            : "Use my location"}
+        </button>
         <button
           type="submit"
           className="min-h-9 rounded-lg bg-surface-2 px-3 text-sm font-semibold text-fg hover:bg-line"
@@ -85,7 +123,13 @@ export function PlaceSearch({ lat, lon, selectedPlace, onSelect }: PlaceSearchPr
           {loading ? "Searching" : "Search"}
         </button>
       </div>
-      <span className="text-xs text-muted">Sets latitude/longitude; civil time is derived from the selected position.</span>
+      <span className="text-xs text-muted">
+        Sets latitude/longitude; civil time is derived from the selected
+        position.
+      </span>
+      <span role="status" aria-live="polite" className="text-xs text-muted">
+        {currentDeviceLocationMessage(locationSource)}
+      </span>
       {(results.length > 0 || message) && (
         <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border border-line bg-bg/95 p-2 text-xs shadow-xl">
           {message ? <p className="px-2 py-1 text-muted">{message}</p> : null}

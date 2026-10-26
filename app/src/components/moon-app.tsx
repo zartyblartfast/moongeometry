@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Share2 } from "lucide-react";
 import {
   compass,
@@ -36,14 +36,22 @@ import {
 } from "@/lib/time-scrubber";
 import { useCivilTime } from "@/lib/use-civil-time";
 import {
+  currentDeviceLocationAvailable,
+  initialViewingLocationSource,
+  roundDeviceLocation,
+  requestCurrentDevicePosition,
+  transitionViewingLocationSource,
+} from "@/lib/viewing-location";
+import {
   createShareInfographic,
   shareInfographicFilename,
 } from "@/lib/share-infographic";
 import { DeclinationDiagram } from "./declination-diagram";
 import { LocalSkyCoordinateDiagrams } from "./local-sky-coordinate-diagrams";
+import { LocalSkyHeader } from "./local-sky-header";
 import { MoonPhase } from "./moon-phase";
 import { PlaceSearch } from "./place-search";
-import { SkyChart } from "./sky-chart";
+import { OrientationControl } from "./orientation-control";
 import { SpaceScene } from "./space-scene";
 import { ShareInfographicDialog } from "./share-infographic-dialog";
 import { TimeScrubber } from "./time-scrubber";
@@ -148,6 +156,11 @@ export function MoonApp() {
   const [selectedPlace, setSelectedPlace] = useState<RememberedPlace | null>(
     null,
   );
+  const [viewingLocationSource, setViewingLocationSource] = useState(
+    initialViewingLocationSource,
+  );
+  const [viewingLocationRevision, setViewingLocationRevision] = useState(0);
+  const currentLocationRequestRef = useRef(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -280,6 +293,63 @@ export function MoonApp() {
   const onTimeScrub = (minute: number) => {
     setPlaying("none");
     setInstant(instantForTimeScrubberMinute(instant, lon, minute));
+  };
+
+  const clearCurrentDeviceSource = (change: "search" | "manual") => {
+    currentLocationRequestRef.current += 1;
+    setViewingLocationRevision((revision) => revision + 1);
+    const transition = transitionViewingLocationSource(viewingLocationSource, {
+      type: "external-change",
+      change,
+    });
+    setViewingLocationSource(transition.state);
+    if (transition.stopOrientation) setPlaying("none");
+  };
+
+  const requestCurrentLocation = async () => {
+    const requestId = ++currentLocationRequestRef.current;
+    setViewingLocationRevision((revision) => revision + 1);
+    setViewingLocationSource(
+      transitionViewingLocationSource(viewingLocationSource, {
+        type: "request",
+      }).state,
+    );
+    const result = await requestCurrentDevicePosition({
+      isSecureContext: () => window.isSecureContext,
+      getCurrentPosition:
+        navigator.geolocation === undefined
+          ? null
+          : (success, error, options) =>
+              navigator.geolocation.getCurrentPosition(
+                (position) =>
+                  success({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                  }),
+                (positionError) => error({ code: positionError.code }),
+                options,
+              ),
+    });
+    if (requestId !== currentLocationRequestRef.current) return;
+    if (!result.ok) {
+      setViewingLocationSource(
+        transitionViewingLocationSource(
+          { status: "requesting" },
+          { type: "failure", reason: result.reason },
+        ).state,
+      );
+      return;
+    }
+    const transition = transitionViewingLocationSource(
+      { status: "requesting" },
+      { type: "success" },
+    );
+    setViewingLocationRevision((revision) => revision + 1);
+    setPlaying("none");
+    setSelectedPlace(null);
+    setLat(result.location.latDeg);
+    setLon(result.location.lonDeg);
+    setViewingLocationSource(transition.state);
   };
 
   const toggle = (mode: Play) => setPlaying(playing === mode ? "none" : mode);
@@ -473,72 +543,108 @@ export function MoonApp() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-2 rounded-card bg-surface p-3">
-            <div className="flex items-start gap-3">
-              <MoonPhase
-                illumination={sky.moon.illumination}
-                waxing={sky.moon.waxing}
-                latitude={lat}
-                size={44}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-muted">
-                  Local sky path — the resulting path in your local sky
-                </p>
-                <p className="font-display text-xl text-fg">
-                  {sky.moon.phaseName}
-                </p>
-                <p className="text-sm text-muted">
-                  {Math.round(sky.moon.illumination * 100)}% lit ·{" "}
-                  {formatDate(instant, lon)} {formatClock(instant, lon)}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={() => void openShare()}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
+          <OrientationControl
+            snapshot={sky}
+            moonPath={observed.moonPath}
+            sunPath={observed.sunPath}
+            selectedLatDeg={lat}
+            selectedLonDeg={lon}
+            currentLocationAvailable={currentDeviceLocationAvailable(
+              viewingLocationSource,
+            )}
+            locationRevision={viewingLocationRevision}
+            instant={instant}
+            stopAnimation={() => setPlaying("none")}
+            setInstant={setInstant}
+            adoptDeviceLocation={(deviceLat, deviceLon) => {
+              const deviceLocation = roundDeviceLocation(deviceLat, deviceLon);
+              if (deviceLocation === null) return;
+              setSelectedPlace(null);
+              setLat(deviceLocation.latDeg);
+              setLon(deviceLocation.lonDeg);
+            }}
+          >
+            {({ controls, status, chart, orientationActive }) => (
+              <section className="flex flex-col gap-2 rounded-card bg-surface p-3">
+                <LocalSkyHeader
+                  phase={
+                    <MoonPhase
+                      illumination={sky.moon.illumination}
+                      waxing={sky.moon.waxing}
+                      latitude={lat}
+                      size={44}
+                    />
+                  }
+                  title={
+                    <>
+                      <p className="text-xs font-semibold text-muted">
+                        Local sky path — the resulting path in your local sky
+                      </p>
+                      <p className="font-display text-xl text-fg">
+                        {sky.moon.phaseName}
+                      </p>
+                      <p className="text-sm text-muted">
+                        {Math.round(sky.moon.illumination * 100)}% lit ·{" "}
+                        {formatDate(instant, lon)} {formatClock(instant, lon)}
+                      </p>
+                    </>
+                  }
+                  controls={
+                    <>
+                      {controls}
+                      <button
+                        type="button"
+                        onClick={() => void openShare()}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
+                      >
+                        <Share2 size={14} aria-hidden="true" />
+                        Share
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExplainOpen(true)}
+                        className="min-h-9 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
+                      >
+                        Explain
+                      </button>
+                    </>
+                  }
+                />
+                {status}
+                <div
+                  className={
+                    orientationActive
+                      ? "relative h-[23rem] max-h-[62vh] min-h-72"
+                      : "relative h-52"
+                  }
                 >
-                  <Share2 size={14} aria-hidden="true" />
-                  Share
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExplainOpen(true)}
-                  className="rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
-                >
-                  Explain
-                </button>
-              </div>
-            </div>
-            <div className="h-52">
-              <SkyChart
-                snapshot={sky}
-                moonPath={observed.moonPath}
-                sunPath={observed.sunPath}
-              />
-            </div>
-            <p className="text-xs text-muted">
-              Center is the zenith over the selected latitude/longitude. Gold
-              path/dot = Sun; silver path/dot = Moon; small tick = top of Moon
-              path.
-            </p>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <Stat k="Altitude" v={altitudeLabel} />
-              <Stat k="Azimuth" v={azimuthLabel} />
-              <Stat k="Declination" v={deg1(sky.decDeg)} />
-              <Stat
-                k="Top of path"
-                v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)}
-              />
-              <Stat k="Rise" v={riseValue} />
-              <Stat k="Set" v={setValue} />
-            </dl>
-            <p className="text-sm text-fg">
-              At this declination: h at meridian = 90° − |{lat.toFixed(1)}° −{" "}
-              {deg1(sky.decDeg)}|
-            </p>
-          </section>
+                  {chart}
+                </div>
+                <p className="text-xs text-muted">
+                  Center is the zenith over the selected latitude/longitude.
+                  Gold path/dot = Sun; silver path/dot = Moon
+                  {orientationActive
+                    ? ". Fixed scale and sight stay aligned with the phone’s top edge."
+                    : "; small tick = top of Moon path."}
+                </p>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <Stat k="Altitude" v={altitudeLabel} />
+                  <Stat k="Azimuth" v={azimuthLabel} />
+                  <Stat k="Declination" v={deg1(sky.decDeg)} />
+                  <Stat
+                    k="Top of path"
+                    v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)}
+                  />
+                  <Stat k="Rise" v={riseValue} />
+                  <Stat k="Set" v={setValue} />
+                </dl>
+                <p className="text-sm text-fg">
+                  At this declination: h at meridian = 90° − |{lat.toFixed(1)}°
+                  − {deg1(sky.decDeg)}|
+                </p>
+              </section>
+            )}
+          </OrientationControl>
         </div>
 
         <section className="grid gap-2 rounded-card bg-surface p-2.5 sm:grid-cols-2 lg:grid-cols-9">
@@ -546,7 +652,10 @@ export function MoonApp() {
             lat={lat}
             lon={lon}
             selectedPlace={selectedPlace}
+            locationSource={viewingLocationSource}
+            onUseCurrentLocation={() => void requestCurrentLocation()}
             onSelect={(place) => {
+              clearCurrentDeviceSource("search");
               setSelectedPlace({
                 label: place.label,
                 lat: place.lat,
@@ -614,7 +723,10 @@ export function MoonApp() {
             max={90}
             step={0.1}
             value={lat}
-            onChange={setLat}
+            onChange={(value) => {
+              clearCurrentDeviceSource("manual");
+              setLat(value);
+            }}
           />
           <Slider
             label={`Longitude ${lon.toFixed(1)}°`}
@@ -622,7 +734,10 @@ export function MoonApp() {
             max={180}
             step={0.1}
             value={lon}
-            onChange={setLon}
+            onChange={(value) => {
+              clearCurrentDeviceSource("manual");
+              setLon(value);
+            }}
           />
           <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2 lg:col-span-2">
             Earth spin · {formatSpin(spinHours)}
@@ -939,6 +1054,12 @@ function ExplainPanel({
                 <li>
                   Libration and detailed lunar surface or Cassini-state
                   orientation are outside the current scope.
+                </li>
+                <li>
+                  Phone magnetic headings are corrected locally with the World
+                  Magnetic Model when a usable reference is available. Phone
+                  compasses may still be disturbed by metal, magnets or nearby
+                  electronics.
                 </li>
                 <li>
                   The editable clock is mean solar time at the selected
