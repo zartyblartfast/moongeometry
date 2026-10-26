@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Share2 } from "lucide-react";
 import {
   compass,
@@ -121,8 +122,7 @@ function readUrlState(): UrlState {
   };
 }
 
-function replaceUrlState(lat: number, lon: number, instant: number) {
-  if (typeof window === "undefined") return;
+function urlForState(lat: number, lon: number, instant: number) {
   const roundedLat = Math.round(lat * 10) / 10;
   const roundedLon = Math.round(lon * 10) / 10;
   const params = new URLSearchParams({
@@ -131,11 +131,11 @@ function replaceUrlState(lat: number, lon: number, instant: number) {
     date: dateInputValue(instant, roundedLon),
     time: timeInputValue(instant, roundedLon),
   });
-  const next = `${window.location.pathname}?${params.toString()}`;
-  window.history.replaceState(null, "", next);
+  return `${window.location.pathname}?${params.toString()}`;
 }
 
 export function MoonApp() {
+  const navigate = useNavigate();
   const instant = useMoon((s) => s.instant);
   const orbit = useMoon((s) => s.orbit);
   const lat = useMoon((s) => s.lat);
@@ -227,8 +227,14 @@ export function MoonApp() {
 
   useEffect(() => {
     if (!mounted || playing !== "none") return;
-    replaceUrlState(lat, lon, instant);
-  }, [instant, lat, lon, mounted, playing]);
+    // These are in-place control edits, not page navigation. Direct history
+    // writes make the router reset scroll and pull mobile sliders offscreen.
+    void navigate({
+      href: urlForState(lat, lon, instant),
+      replace: true,
+      resetScroll: false,
+    });
+  }, [instant, lat, lon, mounted, playing, navigate]);
 
   const observed = useMemo(
     () => observedViewState(instant, lat, lon, orbit),
