@@ -3,11 +3,12 @@
 **Status:** design-and-code handover, NOT an implemented web feature. Review before coding.
 
 1. Read `docs/HERMES_BRIEF.md` and `docs/FEATURE_SPEC.md`.
-2. Inspect `references/approved/final_infographic.png` (the most recently approved visual at the end of the design session).
+2. **Approved PNG not yet uploaded:** `references/approved/final_infographic.png` is missing from this branch because the binary transfer was unavailable. Do not treat any earlier SVG as the final approved visual. Request the final approved image from the user before visual sign-off.
 3. Inspect `references/programmatic/two_panel_original.svg` and `references/programmatic/earth_inset.svg` for mathematically drawn geometry. They are *earlier programmatic references*, not final style masters.
 4. Read `prototype/python/make_lunar_parallax_with_earth_inset.py` for the spherical-coordinate construction and explicit perpendicular horizon tangents.
 5. Run `python tests/check_spherical_reference.py` for a deterministic verification of the original illustrative geometry.
-6. Before coding, inspect MoonGeometry's **current** source, tests, astronomy provider and design skill. Do not assume repository paths/architecture beyond what you verify locally.
+6. Review `docs/GITHUB_INVENTORY.md` for the actual branch contents and missing binary images.
+7. Before coding, inspect MoonGeometry's **current** source, tests, astronomy provider and design skill. Do not assume repository paths/architecture beyond what you verify locally.
 
 ## Non-negotiable constraints
 - No redesign/regeneration of approved diagram assets during small edits. Use numerical geometry and SVG/Canvas, not generative image rendering, for all educational geometry.
