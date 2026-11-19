@@ -48,6 +48,7 @@ import {
   shareInfographicFilename,
 } from "@/lib/share-infographic";
 import { DeclinationDiagram } from "./declination-diagram";
+import { CheckPrediction } from "./explain-check";
 import { LocalSkyCoordinateDiagrams } from "./local-sky-coordinate-diagrams";
 import { LocalSkyHeader } from "./local-sky-header";
 import { MoonPhase } from "./moon-phase";
@@ -63,11 +64,12 @@ const SNAPS: { id: Snap; label: string }[] = [
   { id: "north", label: "From the north" },
 ];
 
-type ExplainTab = "summary" | "calculation" | "science" | "limits";
+type ExplainTab = "summary" | "calculation" | "check" | "science" | "limits";
 
 const EXPLAIN_TABS: { id: ExplainTab; label: string }[] = [
   { id: "summary", label: "Summary" },
-  { id: "calculation", label: "Live calculation" },
+  { id: "calculation", label: "How was this calculated?" },
+  { id: "check", label: "How can I check it?" },
   { id: "science", label: "Scientific basis" },
   { id: "limits", label: "Limits" },
 ];
@@ -153,6 +155,7 @@ export function MoonApp() {
   const [explainOpen, setExplainOpen] = useState(false);
   const [explainTab, setExplainTab] = useState<ExplainTab>("summary");
   const [orbitInfoOpen, setOrbitInfoOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<RememberedPlace | null>(
     null,
   );
@@ -338,6 +341,7 @@ export function MoonApp() {
     });
     if (requestId !== currentLocationRequestRef.current) return;
     if (!result.ok) {
+      setManualOpen(true);
       setViewingLocationSource(
         transitionViewingLocationSource(
           { status: "requesting" },
@@ -452,14 +456,14 @@ export function MoonApp() {
           </div>
         </header>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
-          <section className="flex flex-col overflow-hidden rounded-card bg-surface">
+        <div className="order-last grid gap-3 lg:order-none lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
+          <section className="order-last flex flex-col overflow-hidden rounded-card bg-surface lg:order-first">
             <div className="relative h-80 min-h-72 lg:h-[24.25rem]">
               <SpaceScene snapshot={sky} orbitInstant={orbit} />
               <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1 text-xs">
-                <span className="mb-1 text-sm font-semibold text-fg">
-                  Orbital geometry — the Moon's tilted orbit around Earth
-                </span>
+                <h2 className="mb-1 text-sm font-semibold text-fg">
+                  Orbital geometry
+                </h2>
                 <span className="text-equator">Equator</span>
                 <span className="text-gold">Ecliptic 23.4°</span>
                 <span className="text-gold">Parallel sunlight</span>
@@ -561,7 +565,7 @@ export function MoonApp() {
             locationRevision={viewingLocationRevision}
             instant={instant}
             stopAnimation={() => setPlaying("none")}
-            setInstant={setInstant}
+
             adoptDeviceLocation={(deviceLat, deviceLon) => {
               const deviceLocation = roundDeviceLocation(deviceLat, deviceLon);
               if (deviceLocation === null) return;
@@ -583,9 +587,9 @@ export function MoonApp() {
                   }
                   title={
                     <>
-                      <p className="text-xs font-semibold text-muted">
-                        Local sky path — the resulting path in your local sky
-                      </p>
+                      <h2 className="text-sm font-semibold text-fg">
+                        Local sky path
+                      </h2>
                       <p className="font-display text-xl text-fg">
                         {sky.moon.phaseName}
                       </p>
@@ -617,11 +621,16 @@ export function MoonApp() {
                   }
                 />
                 {status}
+                <p className="text-sm text-fg lg:hidden">
+                  {altDeg < 0
+                    ? "The Moon is below the horizon."
+                    : `The Moon is ${deg1(altDeg)} above the horizon, toward ${compass(azDeg)}.`}
+                </p>
                 <div
                   className={
                     orientationActive
                       ? "relative h-[23rem] max-h-[62vh] min-h-72"
-                      : "relative h-52"
+                      : "relative h-52 lg:h-64"
                   }
                 >
                   {chart}
@@ -653,13 +662,20 @@ export function MoonApp() {
           </OrientationControl>
         </div>
 
-        <section className="grid gap-2 rounded-card bg-surface p-2.5 sm:grid-cols-2 lg:grid-cols-9">
+        <section
+          aria-label="Place and time"
+          className="grid gap-2 rounded-card bg-surface p-2.5 sm:grid-cols-2 lg:grid-cols-9"
+        >
           <PlaceSearch
             lat={lat}
             lon={lon}
             selectedPlace={selectedPlace}
             locationSource={viewingLocationSource}
             onUseCurrentLocation={() => void requestCurrentLocation()}
+            onUseCurrentTime={() => setInstant(Date.now())}
+            moment={`${formatDate(instant, lon)} ${formatClock(instant, lon)}`}
+            expanded={manualOpen}
+            onToggle={() => setManualOpen((open) => !open)}
             onSelect={(place) => {
               clearCurrentDeviceSource("search");
               setSelectedPlace({
@@ -671,103 +687,99 @@ export function MoonApp() {
               setLon(place.lon);
             }}
           />
-          <label className="flex flex-col gap-1 text-sm text-muted">
-            Date
-            <input
-              type="date"
-              value={dateInputValue(instant, lon)}
-              onChange={(e) => onDate(e.target.value)}
-              suppressHydrationWarning
-              className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
-            />
-          </label>
-          <div className="flex flex-col gap-0.5 text-sm text-muted lg:col-span-2">
-            <div className="flex items-center justify-between gap-2">
+          <div
+            id="manual-moment-fields"
+            className={manualOpen ? "contents" : "hidden lg:contents"}
+          >
+            <label className="flex flex-col gap-1 text-sm text-muted">
+              Date
+              <input
+                type="date"
+                value={dateInputValue(instant, lon)}
+                onChange={(e) => onDate(e.target.value)}
+                suppressHydrationWarning
+                className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
+              />
+            </label>
+            <div className="flex flex-col gap-0.5 text-sm text-muted lg:col-span-2">
               <label htmlFor="mean-solar-time">Mean solar time</label>
-              <button
-                type="button"
-                title="Set the date and mean solar time to now"
-                onClick={() => setInstant(Date.now())}
-                className="shrink-0 rounded-md bg-surface-2 px-2 py-0.5 text-[0.68rem] font-semibold text-fg hover:bg-line"
+              <input
+                id="mean-solar-time"
+                type="time"
+                value={timeInputValue(instant, lon)}
+                onChange={(e) => onTime(e.target.value)}
+                suppressHydrationWarning
+                className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
+              />
+              <TimeScrubber minute={scrubberMinute} onChange={onTimeScrub} />
+              <span className="text-xs text-muted">
+                {formatUtcMomentLine(instant, lon)}
+              </span>
+              <span
+                className="text-xs text-muted"
+                title={
+                  civilTime.status === "ready"
+                    ? `IANA zone: ${civilTime.value.timeZoneId}`
+                    : undefined
+                }
               >
-                Current time
-              </button>
+                {civilTime.status === "loading"
+                  ? "Civil · calculating…"
+                  : civilTime.status === "unavailable"
+                    ? "Civil · unavailable"
+                    : composeCivilTimeLine(
+                        civilTime.value,
+                        localParts(instant, lon).y,
+                      )}
+              </span>
             </div>
-            <input
-              id="mean-solar-time"
-              type="time"
-              value={timeInputValue(instant, lon)}
-              onChange={(e) => onTime(e.target.value)}
-              suppressHydrationWarning
-              className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
+            <Slider
+              label={`Latitude ${lat.toFixed(1)}°`}
+              min={-90}
+              max={90}
+              step={0.1}
+              value={lat}
+              onChange={(value) => {
+                clearCurrentDeviceSource("manual");
+                setLat(value);
+              }}
             />
-            <TimeScrubber minute={scrubberMinute} onChange={onTimeScrub} />
-            <span className="text-xs text-muted">
-              {formatUtcMomentLine(instant, lon)}
-            </span>
-            <span
-              className="text-xs text-muted"
-              title={
-                civilTime.status === "ready"
-                  ? `IANA zone: ${civilTime.value.timeZoneId}`
-                  : undefined
-              }
-            >
-              {civilTime.status === "loading"
-                ? "Civil · calculating…"
-                : civilTime.status === "unavailable"
-                  ? "Civil · unavailable"
-                  : composeCivilTimeLine(
-                      civilTime.value,
-                      localParts(instant, lon).y,
-                    )}
-            </span>
+            <Slider
+              label={`Longitude ${lon.toFixed(1)}°`}
+              min={-180}
+              max={180}
+              step={0.1}
+              value={lon}
+              onChange={(value) => {
+                clearCurrentDeviceSource("manual");
+                setLon(value);
+              }}
+            />
+            <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2 lg:col-span-2">
+              Earth spin · {formatSpin(spinHours)}
+              <input
+                type="range"
+                min={0}
+                max={1000}
+                step={1}
+                aria-valuetext={formatSpin(spinHours)}
+                value={spinToSlider(spinHours)}
+                onChange={(e) =>
+                  setSpinHours(sliderToSpin(Number(e.target.value)))
+                }
+                suppressHydrationWarning
+                className="h-9 w-full accent-gold"
+              />
+            </label>
+            <p className="text-xs text-muted sm:col-span-2 lg:col-span-9">
+              Topocentric ephemeris positions. Geometric rise/set. No
+              refraction. Distances remain schematic. Drag the model to turn it.
+              In Edge-on view, drag the north-axis tip to level the equator or
+              ecliptic. The Earth spin slider sets the pace, from one night up
+              to a whole year. Slide the Moon holds the clock and lets
+              declination drift.
+            </p>
           </div>
-          <Slider
-            label={`Latitude ${lat.toFixed(1)}°`}
-            min={-90}
-            max={90}
-            step={0.1}
-            value={lat}
-            onChange={(value) => {
-              clearCurrentDeviceSource("manual");
-              setLat(value);
-            }}
-          />
-          <Slider
-            label={`Longitude ${lon.toFixed(1)}°`}
-            min={-180}
-            max={180}
-            step={0.1}
-            value={lon}
-            onChange={(value) => {
-              clearCurrentDeviceSource("manual");
-              setLon(value);
-            }}
-          />
-          <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2 lg:col-span-2">
-            Earth spin · {formatSpin(spinHours)}
-            <input
-              type="range"
-              min={0}
-              max={1000}
-              step={1}
-              aria-valuetext={formatSpin(spinHours)}
-              value={spinToSlider(spinHours)}
-              onChange={(e) =>
-                setSpinHours(sliderToSpin(Number(e.target.value)))
-              }
-              suppressHydrationWarning
-              className="h-9 w-full accent-gold"
-            />
-          </label>
-          <p className="text-xs text-muted sm:col-span-2 lg:col-span-9">
-            Topocentric ephemeris positions. Geometric rise/set. No refraction.
-            Distances remain schematic. Drag the model to turn it. In Edge-on
-            view, drag the north-axis tip to level the equator or ecliptic. The
-            Earth spin slider sets the pace, from one night up to a whole year.
-            Slide the Moon holds the clock and lets declination drift.
-          </p>
         </section>
       </main>
       {explainOpen ? (
@@ -839,6 +851,8 @@ function ExplainPanel({
   rise: string;
   set: string;
 }) {
+  const instant = useMoon((s) => s.instant);
+  const simulated = useMoon((s) => s.orbit !== s.instant || s.playing === "slide");
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/55 p-3"
@@ -874,6 +888,7 @@ function ExplainPanel({
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
+              aria-pressed={item.id === tab}
               className={
                 "rounded-full px-3 py-1.5 text-sm font-semibold " +
                 (tab === item.id ? "bg-fg text-bg" : "bg-surface-2 text-fg")
@@ -885,6 +900,14 @@ function ExplainPanel({
         </nav>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm leading-6 text-muted">
+          {simulated && (
+            <p className="mb-4 border-l-2 border-gold pl-3 text-fg">
+              Slide the Moon simulation: the orbital position moves separately
+              from the observer’s clock. Set the date and time again before
+              comparing this sky with an observation.
+            </p>
+          )}
+          {tab === "check" && <CheckPrediction />}
           {tab === "summary" ? (
             <div className="space-y-3">
               <p className="text-base text-fg">
@@ -925,14 +948,28 @@ function ExplainPanel({
           {tab === "calculation" ? (
             <div className="space-y-4">
               <p className="text-base text-fg">
-                Live values from the current app state
+                Inputs for this sky
               </p>
+              <ValueGrid rows={[
+                ["Latitude / longitude", `${lat}°, ${lon}°`],
+                ["Mean solar time", dateLabel],
+                ["Observer clock (UTC)", new Date(instant).toISOString()],
+              ]} />
+              <h3 className="text-base text-fg">Model: from orbit to your sky</h3>
+              <p>Astronomy Engine calculates the Moon’s direction from Earth’s centre,
+                then shifts the viewpoint to your location at sea level. Earth’s
+                rotation sets the direction of your local meridian.</p>
               <ValueGrid
                 rows={[
                   ["Geocentric ecliptic longitude", deg1(moonEclLonDeg)],
                   ["Geocentric ecliptic latitude", deg1(moonEclLatDeg)],
                   ["Moon declination", deg1(declinationDeg)],
                   ["Hour angle", deg1(hourAngleDeg)],
+                ]}
+              />
+              <h3 className="text-base text-fg">Calculated results · Moon centre</h3>
+              <ValueGrid
+                rows={[
                   ["Altitude result", deg1(altitudeDeg)],
                   [
                     "Azimuth result",

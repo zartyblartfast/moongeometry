@@ -16,11 +16,12 @@ try {
       `${baseUrl}/?lat=51.5&lon=0.0&date=2026-10-26&time=12%3A00`,
     );
     const ranges = page.locator('input[type="range"]');
-    await ranges.first().waitFor();
+
     await page.waitForFunction(
       () => document.querySelector('input[type="range"]')?.value === "720",
     );
     await page.waitForTimeout(1000);
+    await page.getByRole("button", { name: "Change place or time" }).click();
     assert.equal(await ranges.count(), 4);
     const historyLength = await page.evaluate(() => history.length);
     await page.evaluate(() => {

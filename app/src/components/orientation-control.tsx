@@ -35,7 +35,7 @@ type Props = {
   locationRevision: number;
   instant: number;
   stopAnimation(): void;
-  setInstant(instant: number): void;
+
   adoptDeviceLocation(latDeg: number, lonDeg: number): void;
   orientationHook?: (options: {
     selectedLatDeg: number;
@@ -59,7 +59,7 @@ export function OrientationControl({
   locationRevision,
   instant,
   stopAnimation,
-  setInstant,
+
   adoptDeviceLocation,
   orientationHook = useTrueNorthOrientation,
   children,
@@ -237,14 +237,7 @@ export function OrientationControl({
         </div>
         {active && selectedTimeNeedsWarning(instant, Date.now()) ? (
           <div className="flex min-h-9 flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-1.5 text-xs text-muted">
-            <span>Showing the selected time</span>
-            <button
-              type="button"
-              onClick={() => setInstant(Date.now())}
-              className="min-h-10 rounded-full bg-surface px-3 font-semibold text-fg"
-            >
-              Use current time
-            </button>
+            <span>Showing the selected time, not the current sky.</span>
           </div>
         ) : null}
         {import.meta.env?.DEV && previewHeadingDeg !== null ? (

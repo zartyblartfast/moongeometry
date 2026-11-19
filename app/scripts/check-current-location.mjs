@@ -69,6 +69,10 @@ try {
       });
     }
     // Both manual sliders must stop claiming the selected point is device-derived.
+    const disclosure = page.getByRole("button", {
+      name: "Change place or time",
+    });
+    if (await disclosure.isVisible()) await disclosure.click();
     for (const index of [1, 2]) {
       await page.locator('input[type="range"]').nth(index).focus();
       await page.keyboard.press("ArrowRight");
@@ -100,6 +104,7 @@ try {
       await status.textContent(),
       "Using your location · 33.869° S, 151.209° E",
     );
+    if (await disclosure.isVisible()) await disclosure.click();
     await form.locator('input[type="search"]').fill("Test place");
     await form.getByRole("button", { name: "Search", exact: true }).click();
     await form

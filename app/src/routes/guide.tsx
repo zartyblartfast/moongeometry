@@ -91,12 +91,14 @@ function Guide() {
               <li>Compare rise, set and the top of the daily path.</li>
               <li>Drag the orbital model or choose a Model view.</li>
               <li>Use Spin Earth or Slide the Moon to reveal motion.</li>
-              <li>Open Explain for the current calculation and limits.</li>
+              <li>Open Explain → How was this calculated? for the inputs and results.</li>
               <li>Use Share to export the current diagrams as a PNG.</li>
             </ol>
             <p>
               The address bar keeps the selected latitude, longitude, date and
-              time, so a particular state can be bookmarked or shared.
+              time, so a particular state can be bookmarked or shared. To check a
+              prediction, open Explain → How can I check it? for a record-first
+              outdoor measurement or a separate JPL Horizons model comparison.
             </p>
           </GuideSection>
 
