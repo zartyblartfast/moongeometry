@@ -440,9 +440,9 @@ export function MoonApp() {
               Angles true · distances fiction
             </p>
             <h1 className="font-display text-3xl text-fg">Moon Geometry</h1>
-            <nav aria-label="Workspaces" className="mt-1 flex gap-4 text-sm">
-              <a href="/" aria-current="page" className="font-semibold">Moon Path</a>
-              <a href="/lunar-parallax/" className="text-gold underline underline-offset-4" onClick={() => {
+            <nav aria-label="Workspaces" className="mt-1 flex gap-4 text-sm text-muted [&_[aria-current=page]]:border-b-2 [&_[aria-current=page]]:border-gold [&_[aria-current=page]]:text-fg">
+              <a href="/" aria-current="page">Moon Path</a>
+              <a href="/lunar-parallax/" onClick={() => {
                 try { sessionStorage.setItem("moon-path-return", urlForState(lat, lon, instant)); } catch { /* Storage is optional. */ }
               }}>Lunar Parallax</a>
             </nav>
