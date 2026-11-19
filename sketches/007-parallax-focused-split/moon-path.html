@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MoonGeometry · Local navigation preview</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#10151c;color:#eef1f5;font:15px system-ui}nav{padding:.65rem clamp(12px,4vw,64px);display:flex;align-items:center;gap:1rem;border-bottom:1px solid #38414e}nav a{color:#c6ced8;text-decoration:none;padding:.3em 0}nav a[aria-current]{color:#fff;border-bottom:2px solid #edbb62}main{height:calc(100dvh - 52px)}iframe{width:100%;height:100%;border:0}body.parallax nav{display:none}body.parallax main{height:100dvh}</style>
+<nav aria-label="Workspaces"><a aria-current="page" href="#moon-path">Moon Path</a><a href="#lunar-parallax">Lunar Parallax</a></nav><main><iframe id="path" title="Moon Path local application" src="http://127.0.0.1:5197/"></iframe><iframe hidden id="comparison" title="Lunar Parallax interactive sketch"></iframe></main>
+<script>
+const path=document.getElementById('path'), comparison=document.getElementById('comparison');
+function show(){const active=location.hash==='#lunar-parallax';document.body.classList.toggle('parallax',active);path.hidden=active;comparison.hidden=!active;if(active&&!comparison.hasAttribute('src'))comparison.src='./index.html';document.title=(active?'Lunar Parallax':'Moon Path')+' · Local navigation preview'}
+comparison.addEventListener('load',()=>{const page=comparison.contentDocument;if(!page)return;page.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&new URL(a.href).pathname.endsWith('/moon-path.html')&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&!e.altKey){e.preventDefault();location.hash='moon-path';requestAnimationFrame(()=>document.querySelector('nav a').focus())}})});
+addEventListener('hashchange',show);show();
+</script></html>

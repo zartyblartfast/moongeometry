@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import { chromium } from '../../app/node_modules/playwright/index.mjs';
+const browser=await chromium.launch();
+try {
+ const page=await browser.newPage({viewport:{width:1280,height:800},timezoneId:'America/Los_Angeles'}), errors=[];
+ page.on('pageerror',e=>errors.push(String(e)));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ await page.goto(new URL('index.html',import.meta.url).href);
+ const fill=(id,v)=>page.locator('#'+id).fill(String(v));const select=(id,v)=>page.locator('#'+id).selectOption(v);
+ const read=()=>page.evaluate(()=>{const v=values(),date=new Date($('dateTime').value+'Z');const ref=[state.latA,state.latB].map(lat=>{const o=new Astronomy.Observer(lat,state.lon,0),q=Astronomy.Equator('Moon',date,o,true,true);return Astronomy.Horizon(date,o,q.ra,q.dec);});return {v,ref,utc:+date,rays:[...document.querySelectorAll('.sight')].map(el=>['x1','y1','x2','y2'].map(k=>Number(el.getAttribute(k)))),blocked:[...document.querySelectorAll('.sight')].map(e=>e.classList.contains('blocked-sight')),arc:!!document.querySelector('.parallax-arc')};});
+ const calc=page.locator('#angleCalculation');assert.equal(await calc.count(),1,'angle disclosure below triangle');assert.equal(await calc.getAttribute('open'),null);await calc.locator('summary').click();
+ const verifyAngle=async()=>{const {v}=await read();const t=await page.evaluate(()=>{const q=values();return Parallax.triangulate(state.latA,state.latB,q.altitudeA,q.altitudeB,q.azA,q.azB)});if(!v.baseline){assert.equal(t,null);assert.match(await calc.innerText(),/No usable triangle/);return;}assert.ok(Math.abs(t.a+t.b+t.m-180)<1e-8);assert.ok(Math.abs(t.m-v.parallax)<1e-9);for(const [x,y] of [[t.am,v.aRange],[t.bm,v.bRange],[t.om,v.geo]])assert.ok(Math.abs(x-y)<.001);assert.ok((await calc.innerText()).includes(t.m.toFixed(4)+'°'));};await verifyAngle();
+ const seed=Date.parse('2026-11-16T22:24Z');
+ async function checked(utc=seed){await verifyAngle();const s=await read();assert.equal(s.utc,utc);for(const [i,k] of ['A','B'].entries()){const alt=s.v['altitude'+k];assert.ok(Math.abs(s.ref[i].altitude-alt)<0.00001);assert.ok(Math.abs(s.ref[i].azimuth-s.v['az'+k])<0.00001);assert.equal(s.blocked[i],alt<0);assert.equal(s.blocked[i+2],alt<0);const [x,y,X,Y]=s.rays[i],d=Math.hypot(X-x,Y-y);assert.ok(Math.abs((X-x)/d-s.v['ray'+k].x)<1e-10);assert.ok(Math.abs((Y-y)/d-s.v['ray'+k].y)<1e-10);}assert.deepEqual(s.rays[2].slice(2),s.rays[3].slice(2));return s;}
+ const start=await checked();assert.ok(start.arc);assert.ok(Math.abs(start.v.baseline-9723.996)<.001);assert.ok(Math.abs(start.v.parallax-1.372608)<.000001);
+ for(const [id,v,i] of [['latA',-20,0],['latB',35,1]]){const old=await checked();await fill(id,v);const s=await checked();assert.notDeepEqual(old.rays[i],s.rays[i]);assert.notDeepEqual(old.rays[i+2],s.rays[i+2]);assert.deepEqual(old.rays[1-i],s.rays[1-i]);assert.equal(old.v.geo,s.v.geo);}
+ await fill('longitude',19);const perp=await checked();assert.ok(Math.abs(perp.v.meridianOffset-90)<.001);assert.ok(Math.abs(perp.v.rayA.x)<.1);assert.ok(!perp.arc);
+ await fill('longitude',109);const behind=await checked();assert.ok(behind.v.rayA.x<0&&behind.v.rayB.x<0);assert.ok(behind.blocked.every(Boolean));assert.ok(behind.rays[2][2]<behind.rays[2][0]);assert.equal(behind.v.baseline,perp.v.baseline);
+ await select('coordFormat','hemisphere');assert.deepEqual((await checked()).rays,behind.rays);
+ for(const [id,h,i] of [['latADirection','N',0],['latBDirection','S',1],['longitudeDirection','W',0]]){const old=await checked();await select(id,h);const s=await checked();assert.notDeepEqual(old.rays[i],s.rays[i]);assert.notDeepEqual(old.rays[2+i],s.rays[2+i]);}
+ await select('latBDirection','N');await fill('latB',20);const zero=await checked();assert.equal(zero.v.parallax,0);assert.equal(zero.v.baseline,0);assert.equal(zero.v.aRange,zero.v.bRange);assert.deepEqual(zero.rays[0],zero.rays[1]);assert.deepEqual(zero.rays[2],zero.rays[3]);assert.ok(!zero.arc);
+ await fill('dateTime','2027-01-03T23:58:17');await page.locator('#dateTime').press('Tab');const chosen=Date.parse('2027-01-03T23:58:17Z');await checked(chosen);await page.locator('#stepForward').click();await checked(chosen+300000);await page.locator('#transitButton').click();const transit=await read();await checked(transit.utc);assert.ok(Math.abs(transit.v.meridianOffset)<.001);assert.ok(Math.abs(transit.utc-chosen)<13*3600000);console.log('Transit at −109°:',new Date(transit.utc).toISOString());
+ await page.locator('#resetButton').click();assert.deepEqual((await checked()).rays,start.rays);
+ for(const [width,height] of [[1280,800],[1440,900]]){await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight));}
+ assert.deepEqual(errors,[]);console.log('PASS: fixed UTC, each latitude and longitude, three hemisphere switches, horizontal reference, SVG rays and visibility, perpendicular/opposite meridian, zero baseline, date rollover, transit, reset, desktop fit.');
+} finally {await browser.close();}
