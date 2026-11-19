@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lunar Parallax | Moon Geometry</title>
+  <base href="/lunar-parallax/" />
+  <style>
+    :root {
+      --bg: #0c1220;
+      --surface: #151c2c;
+      --surface-2: #1c2538;
+      --surface-3: #111928;
+      --fg: #e7e1d6;
+      --muted: #9aa3b2;
+      --gold: #d4a24c;
+      --cyan: #35d2d1;
+      --purple: #bd91ff;
+      --equator: #3cbf8c;
+      --silver: #d5dde6;
+      --line: #2a354c;
+      --danger: #e38a82;
+      --shadow: 0 22px 60px rgba(0,0,0,.22);
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 72% -10%, rgba(69,105,159,.12), transparent 34rem),
+        var(--bg);
+      color: var(--fg);
+      font-family: Outfit, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+      font-variant-numeric: tabular-nums;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .shell { width: min(100%, 1500px); min-height: 100vh; margin: 0 auto; padding: 14px 18px 18px; display: grid; grid-template-rows: auto auto minmax(0,1fr); gap: 10px; }
+    .app-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+    .eyebrow { margin: 0 0 2px; color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { margin: 0; font-family: Fraunces, "Iowan Old Style", Georgia, serif; font-size: clamp(26px, 2.2vw, 35px); font-weight: 600; line-height: 1; letter-spacing: -.025em; }
+    .intro { max-width: 620px; margin: 0; text-align: right; color: var(--muted); font-size: 13px; line-height: 1.35; }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(235px,1.2fr) minmax(200px,1fr) minmax(260px,1.5fr) auto;
+      align-items: end;
+      gap: 8px;
+      padding: 9px;
+      background: color-mix(in srgb, var(--surface) 96%, black);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    .observer-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .field { display: grid; gap: 4px; min-width: 0; }
+    .field > span, .group-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+    .input-wrap { display: flex; align-items: center; min-width: 0; height: 34px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); overflow: hidden; }
+    .input-wrap:focus-within { border-color: #607497; box-shadow: 0 0 0 2px rgba(96,116,151,.15); }
+    .dot { width: 8px; height: 8px; margin-left: 10px; flex: 0 0 auto; border-radius: 50%; }
+    .dot.a { background: var(--gold); box-shadow: 0 0 10px rgba(212,162,76,.45); }
+    .dot.b { background: var(--cyan); box-shadow: 0 0 10px rgba(53,210,209,.35); }
+    .observer-fields input, input[type="datetime-local"] { min-width: 0; width: 100%; height: 100%; padding: 0 9px; border: 0; outline: 0; background: transparent; color: var(--fg); }
+    input[type="datetime-local"] { color-scheme: dark; }
+    .suffix { padding-right: 9px; color: var(--muted); font-size: 11px; }
+    .time-group { display: grid; gap: 4px; }
+    .group-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+    .utc-readout { color: #d9bdff; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 11px; font-weight: 750; letter-spacing: .01em; white-space: nowrap; }
+    .time-row { display: grid; grid-template-columns: 132px 34px minmax(110px,1fr) 34px; gap: 7px; align-items: center; }
+    .range-wrap { position: relative; height: 34px; min-width: 0; padding-bottom: 10px; display: flex; align-items: center; }
+    .range-wrap input { position: relative; z-index: 2; margin: 0; }
+    .range-scale { position: absolute; z-index: 1; left: 2px; right: 2px; bottom: -1px; display: flex; justify-content: space-between; color: #748096; font-size: 8px; line-height: 1; pointer-events: none; }
+    .horizon-marker { position: absolute; z-index: 3; top: 4px; width: 2px; height: 11px; border-radius: 2px; transform: translateX(-1px); background: currentColor; box-shadow: 0 0 5px currentColor; pointer-events: none; }
+    .horizon-marker.a { color: var(--gold); }
+    .horizon-marker.b { color: var(--cyan); }
+    .horizon-marker[hidden] { display: none; }
+    .visibility-feedback { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--muted); font-size: 9px; }
+    .visibility-chip { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+    .visibility-chip::before { content: ""; width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
+    .visibility-chip.a { color: var(--gold); }
+    .visibility-chip.b { color: var(--cyan); }
+    .visibility-chip.below { color: var(--danger); font-weight: 750; }
+    .boundary-note { margin-left: auto; white-space: nowrap; }
+    input[type="range"] { width: 100%; accent-color: var(--purple); }
+    .button, .icon-button {
+      height: 34px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); cursor: pointer;
+    }
+    .button { padding: 0 12px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+    .button:hover, .icon-button:hover { border-color: #53627e; background: #222d43; }
+    .button.primary { border-color: rgba(189,145,255,.5); background: rgba(189,145,255,.12); color: #d9bdff; }
+    .icon-button { width: 34px; font-size: 17px; }
+    .toolbar-actions { display: flex; gap: 7px; }
+    /* Reserve Reset's slot so revealing it cannot move the track during a drag. */
+    #resetButton[hidden] { display: inline-block; visibility: hidden; }
+    .workspace { min-height: 0; display: grid; grid-template-rows: minmax(410px,1fr) auto; gap: 10px; }
+    .panels { min-height: 0; display: grid; grid-template-columns: 1.08fr .92fr; gap: 10px; }
+    .panel { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0,1fr) auto; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+    .panel.projected-state { border-color: rgba(189,145,255,.45); box-shadow: 0 0 0 1px rgba(189,145,255,.08), var(--shadow); }
+    .panel-head { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 12px 8px 14px; border-bottom: 1px solid var(--line); }
+    .panel-title { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+    .step { color: var(--muted); font-family: Fraunces, Georgia, serif; font-size: 18px; }
+    h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .01em; }
+    .panel-kicker { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .status { display: inline-flex; align-items: center; gap: 7px; min-height: 27px; padding: 0 9px; border: 1px solid rgba(60,191,140,.35); border-radius: 999px; background: rgba(60,191,140,.09); color: #88dbb9; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+    .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+    .status.projected { border-color: rgba(189,145,255,.36); background: rgba(189,145,255,.1); color: #d4b3ff; }
+    .status.scale-status { border-color: rgba(189,145,255,.52); background: rgba(189,145,255,.14); color: #ddc7ff; }
+    .diagram { position: relative; min-height: 0; overflow: hidden; background: linear-gradient(180deg, rgba(23,35,54,.76), rgba(11,19,32,.64)); }
+    svg { display: block; width: 100%; height: 100%; min-height: 330px; }
+    .diagram-note { position: absolute; left: 12px; bottom: 10px; max-width: 340px; margin: 0; padding: 6px 8px; border: 1px solid rgba(42,53,76,.8); border-radius: 6px; background: rgba(12,18,32,.82); color: var(--muted); font-size: 10px; line-height: 1.35; backdrop-filter: blur(5px); }
+    .diagram-note.scale-note { max-width: 470px; border-color: rgba(189,145,255,.4); background: rgba(24,20,42,.9); color: #d9d0e7; font-size: 11px; }
+    .diagram-note.scale-note strong { color: #e3ceff; letter-spacing: .035em; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 7px 13px; border-top: 1px solid var(--line); background: var(--surface-3); color: var(--muted); font-size: 10px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 18px; height: 2px; background: currentColor; }
+    .metrics-strip { display: grid; grid-template-columns: 1.05fr 1fr 1.2fr; gap: 10px; }
+    .metric-block { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+    .metric-block h3 { margin: 0 0 8px; color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+    .metric-grid { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; margin: 0; font-size: 11px; line-height: 1.45; }
+    .metric-grid dt { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .metric-grid dd { margin: 0; color: var(--fg); font-weight: 650; text-align: right; white-space: nowrap; }
+    .metric-grid .a-value { color: #e8b95f; }
+    .metric-grid .b-value { color: #55dfdc; }
+    .metric-grid .p-value { color: #c9a4ff; }
+    .explain-copy { margin: 0; color: #c2c8d1; font-size: 11px; line-height: 1.48; }
+    .explain-copy strong { color: var(--fg); }
+    .explain-copy .caution { color: #d6bdf7; }
+    .explain-details { display: none; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--muted); }
+    .metric-block.open .explain-details { display: block; }
+    .mini-action { float: right; margin: -4px -4px 0 8px; padding: 3px 6px; border: 0; background: transparent; color: var(--gold); font-size: 10px; cursor: pointer; }
+    .svg-label { font-family: Outfit, "Segoe UI", sans-serif; fill: var(--fg); }
+    .svg-muted { fill: var(--muted); }
+    .svg-a { fill: var(--gold); }
+    .svg-b { fill: var(--cyan); }
+    .svg-p { fill: var(--purple); }
+    .earth-fill { fill: url(#earthGlow); stroke: #8fc6ef; stroke-width: 2.2; }
+    .guide { stroke: #7e8aa0; stroke-width: 1.1; fill: none; }
+    .radius { stroke: #d7e0ec; stroke-width: 1.2; }
+    .horizon { stroke-width: 1.5; stroke-dasharray: 7 6; }
+    .sight { stroke-width: 2.7; fill: none; }
+    .right-angle { stroke-width: 1.2; fill: none; }
+    .moon { fill: url(#moonGlow); stroke: #fff; stroke-width: 1.1; }
+    .baseline { stroke: #9ba8bb; stroke-width: 1.3; stroke-dasharray: 5 6; }
+    .parallax-arc { stroke: var(--purple); stroke-width: 2.2; fill: none; }
+    .latitude-guide { stroke: #54b596; stroke-width: 1; opacity: .13; }
+    .latitude-guide.equator { opacity: .23; stroke-width: 1.2; }
+    .pole-marker { fill: var(--fg); opacity: .8; }
+    .blocked-sight { stroke: var(--danger); stroke-dasharray: 7 5; opacity: .88; }
+    .blocked-label { fill: var(--danger); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+    .altitude-label { paint-order: stroke fill; stroke: #142031; stroke-width: 3px; stroke-linejoin: round; font-size: 16px; }
+    .blocked-x { stroke: var(--danger); stroke-width: 2; }
+    .hidden-on-mobile { display: inline; }
+
+    @media (max-width: 980px) {
+      .shell { padding: 10px; }
+      .toolbar { grid-template-columns: 1.2fr 1fr; }
+      .time-group { grid-column: 1 / -1; }
+      .toolbar-actions { position: absolute; right: 19px; margin-top: -43px; }
+      .panels { grid-template-columns: 1fr 1fr; }
+      .metrics-strip { grid-template-columns: 1fr 1fr; }
+      .metric-block:last-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 720px) and (orientation: portrait) {
+      .shell { display: block; padding: 9px; }
+      .app-header { align-items: flex-start; margin: 2px 2px 10px; }
+      .intro { display: none; }
+      h1 { font-size: 27px; }
+      .toolbar { grid-template-columns: 1fr; gap: 8px; margin-bottom: 9px; }
+      .time-group { grid-column: auto; }
+      .group-heading { align-items: flex-start; flex-direction: column; gap: 2px; }
+      .time-row { grid-template-columns: 132px 34px 1fr 34px; }
+      .toolbar-actions { position: static; margin: 0; }
+      .toolbar-actions .button { flex: 1; }
+      .workspace { display: block; }
+      .panels { display: grid; grid-template-columns: 1fr; gap: 9px; }
+      .panel { min-height: 430px; }
+      .panel-head { align-items: flex-start; }
+      .panel-title { display: grid; gap: 0; }
+      .panel-kicker { display: none; }
+      svg { min-height: 330px; }
+      .metrics-strip { grid-template-columns: 1fr; margin-top: 9px; }
+      .metric-block:last-child { grid-column: auto; }
+      .diagram-note { max-width: calc(100% - 24px); }
+    }
+    @media (max-height: 500px) and (orientation: landscape) {
+      .shell { width: 100%; padding: 7px 9px 9px; gap: 6px; }
+      .app-header { align-items: center; }
+      .eyebrow { display: none; }
+      h1 { font-size: 21px; }
+      .intro { max-width: 480px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .toolbar { display: flex; align-items: flex-end; gap: 6px; padding: 6px; overflow-x: auto; }
+      .observer-pair { min-width: 270px; }
+      .field.time-field { min-width: 155px; }
+      .time-group { min-width: 285px; }
+      .group-heading { align-items: flex-start; flex-direction: column; gap: 1px; }
+      .utc-readout { font-size: 9px; }
+      .time-row { grid-template-columns: 116px 30px 120px 30px; gap: 5px; }
+      .visibility-feedback { display: none; }
+      .input-wrap, .button, .icon-button { height: 30px; }
+      .toolbar-actions { position: static; margin: 0; flex: 0 0 auto; }
+      .workspace { display: block; }
+      .panels { grid-template-columns: 1.08fr .92fr; gap: 7px; }
+      .panel { min-height: 260px; }
+      .panel-head { min-height: 36px; padding: 4px 8px; }
+      .step { font-size: 14px; }
+      h2 { font-size: 11px; }
+      .panel-kicker, .legend, .diagram-note { display: none; }
+      .status { min-height: 22px; padding: 0 7px; font-size: 8px; }
+      svg { min-height: 220px; height: 220px; }
+      .metrics-strip { grid-template-columns: repeat(3,1fr); gap: 7px; margin-top: 7px; }
+      .metric-block { padding: 7px 9px; }
+      .metric-block:last-child { grid-column: auto; }
+      .metric-grid, .explain-copy { font-size: 9px; }
+      .metric-block h3 { margin-bottom: 4px; font-size: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+    .workspace-links {display:flex;gap:16px;margin:0 0 7px;font-size:13px}.workspace-links a{color:var(--muted);text-decoration:none}.workspace-links [aria-current]{color:var(--fg);border-bottom:2px solid var(--gold)}
+    .toolbar{grid-template-columns:minmax(330px,1.3fr) minmax(360px,1.6fr) auto}.observer-fields{display:grid;grid-template-columns:2fr 1fr;gap:7px}.observer-edit{min-width:0}.observer-edit summary{cursor:pointer;color:var(--muted);font-size:12px}.observer-edit[open] summary{margin-bottom:5px}.input-wrap select{color:var(--fg);background:var(--surface-2);border:0}.time-row{grid-template-columns:minmax(130px,1fr) auto minmax(100px,1fr) auto}.icon-button{width:auto;padding:0 6px;font-size:12px}.toolbar-actions{position:static;margin:0}.visibility-feedback{display:flex;flex-wrap:wrap}.toolbar .time-group{grid-column:auto}.metrics-strip{display:block}.metrics-strip details{margin-top:8px}.metrics-strip summary{cursor:pointer;color:var(--fg);font-size:13px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.detail-grid section{box-shadow:none}.diagram-note{position:static;max-width:none;margin:0;border:0;background:transparent}.diagram{display:flex;flex-direction:column}.diagram svg{flex:1;min-height:0}.panel-title{display:flex}.status{white-space:normal}
+    @media(max-width:1050px){.toolbar{display:grid;grid-template-columns:1fr auto}.observer-edit{grid-column:1/-1}.toolbar-actions{align-self:center}.time-group{min-width:0}.observer-pair{min-width:0}.field.time-field{min-width:0}}
+    @media(max-width:650px){.toolbar{display:flex;flex-direction:column;align-items:stretch}.time-group{order:-1}.time-row{grid-template-columns:auto 1fr auto}.time-row label{grid-column:1/-1}.panel-head{flex-direction:column;align-items:flex-start;gap:4px}.panel-title{gap:7px}.panel{min-height:0}.diagram svg{height:auto;flex:none;aspect-ratio:700/410}.detail-grid,.observer-fields{grid-template-columns:1fr}.visibility-feedback{font-size:11px}.toolbar-actions .button{flex:none}}
+    @media(min-width:1051px) and (min-height:700px){.shell:not(:has(.metrics-strip details[open])){height:100vh}}
+    .angle-check{padding:5px 13px 8px;background:var(--surface-3);font-size:12px;color:var(--fg)}.angle-check summary{cursor:pointer}.angle-check p{margin:6px 0;line-height:1.45}.angle-check output{color:var(--purple);font-weight:700}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="app-header">
+      <div>
+        <nav aria-label="Workspaces" class="workspace-links"><a id="moonPathLink" href="/">Moon Path</a><a href="/lunar-parallax/" aria-current="page">Lunar Parallax</a></nav>
+        <h1>Lunar Parallax</h1>
+      </div>
+      <p class="intro">Two observers, one UTC instant. Compare each local horizon, then inspect the slight convergence of their Moon sightlines.</p>
+    </header>
+
+    <section class="toolbar" aria-label="Lunar parallax controls">
+      <details class="observer-edit" id="observerEdit" open><summary id="observerSummary">Edit observers</summary><div class="observer-fields"><div class="observer-pair">
+        <label class="field">
+          <span>Observer A latitude</span>
+          <span class="input-wrap"><i class="dot a"></i><input id="latA" value="-53.1627" aria-label="Observer A latitude" aria-describedby="coordHint" spellcheck="false" /><span class="suffix">°</span></span>
+        </label>
+        <label class="field">
+          <span>Observer B latitude</span>
+          <span class="input-wrap"><i class="dot b"></i><input id="latB" value="46.8126" aria-label="Observer B latitude" aria-describedby="coordHint" spellcheck="false" /><span class="suffix">°</span></span>
+        </label>
+      </div>
+      <label class="field time-field">
+        <span>Shared longitude</span>
+        <span class="input-wrap"><input id="longitude" value="-71" aria-label="Shared longitude" aria-describedby="coordHint" spellcheck="false" /><span class="suffix">°</span></span>
+      </label>
+      </div><label style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--muted)">Coordinate format <select id="coordFormat" style="font:inherit;color-scheme:dark"><option value="decimal">Signed decimal</option><option value="hemisphere">Hemisphere</option></select></label><span id="coordHint" hidden>Enter coordinates in the selected format.</span></details><div class="time-group">
+        <div class="group-heading">
+          <span class="group-label">One shared UTC instant</span>
+          <output class="utc-readout" id="utcReadout" for="dateTime timeSlider">2026-11-16 22:24 UTC</output>
+        </div>
+        <div class="time-row">
+          <label class="input-wrap"><input id="dateTime" type="datetime-local" value="2026-11-16T22:24" aria-label="Shared UTC date and time" /></label>
+          <button class="icon-button" id="stepBack" aria-label="Step back five minutes">−5 min</button>
+          <div class="range-wrap">
+            <input id="timeSlider" type="range" min="-720" max="720" step="5" value="0" aria-label="Adjust shared UTC instant in five minute steps" aria-describedby="utcReadout visibilityFeedback" />
+            <i class="horizon-marker a" id="boundaryA" hidden></i><i class="horizon-marker b" id="boundaryB" hidden></i>
+            <span class="range-scale"><span>−12 h</span><span>reference UTC</span><span>+12 h</span></span>
+          </div>
+          <button class="icon-button" id="stepForward" aria-label="Step forward five minutes">+5 min</button>
+        </div>
+        <div class="visibility-feedback" id="visibilityFeedback"><span class="visibility-chip a" id="visibilityA">A visible</span><span class="visibility-chip b" id="visibilityB">B visible</span><span class="boundary-note">ticks mark 0° horizon crossings</span></div>
+      </div>
+      <div class="toolbar-actions">
+        <button class="button primary" id="transitButton" title="When the Moon crosses the shared longitude in this example">Go to transit</button>
+        <button class="button" id="resetButton">Reset example</button>
+
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="panels">
+        <article class="panel" id="localPanel">
+          <header class="panel-head">
+            <div class="panel-title"><span class="step">1</span><h2>Two local horizons</h2></div>
+            <span class="status" id="meridianStatus">Moon aligned with shared longitude</span>
+          </header>
+          <div class="diagram">
+            <svg id="horizonSvg" viewBox="0 0 700 410" role="img" aria-label="Earth meridian cross-section with observers A and B, their tangent local horizons, and sightlines extending toward the off-panel Moon">
+              <defs>
+                <radialGradient id="earthGlow" cx="40%" cy="35%"><stop offset="0" stop-color="#244f7d"/><stop offset=".72" stop-color="#173755"/><stop offset="1" stop-color="#102a43"/></radialGradient>
+              </defs>
+              <g id="leftDynamic"></g>
+            </svg>
+            <p class="diagram-note" id="leftNote">The Moon is within 0.001° of the shared longitude, so this north–south cross-section closely matches the true 3D geometry.</p>
+          </div>
+          <footer class="legend"><span style="color:var(--gold)"><i class="swatch"></i>Observer A</span><span style="color:var(--cyan)"><i class="swatch"></i>Observer B</span><span><i class="swatch"></i>solid sightline</span><span><i class="swatch" style="background:repeating-linear-gradient(90deg,currentColor 0 5px,transparent 5px 8px)"></i>local tangent</span></footer>
+        </article>
+
+        <article class="panel">
+          <header class="panel-head">
+            <div class="panel-title"><span class="step">2</span><h2>Where the sightlines meet</h2></div>
+            <span class="status scale-status" id="modelStatus">Schematic · not to scale</span>
+          </header>
+          <div class="diagram">
+            <svg id="triangleSvg" viewBox="0 0 620 410" role="img" aria-label="Earth, observer baseline, Moon sightlines and parallax angle">
+              <defs>
+                <radialGradient id="earthGlow2" cx="40%" cy="35%"><stop offset="0" stop-color="#244f7d"/><stop offset=".74" stop-color="#173755"/><stop offset="1" stop-color="#102a43"/></radialGradient>
+                <radialGradient id="moonGlow2" cx="35%" cy="30%"><stop offset="0" stop-color="#fff"/><stop offset=".72" stop-color="#d5dde6"/><stop offset="1" stop-color="#929dad"/></radialGradient>
+              </defs>
+              <g id="rightDynamic"></g>
+              <g class="svg-label" font-size="12">
+                <text x="22" y="30" font-weight="700">COMMON-FRAME GEOMETRY</text>
+                <text x="22" y="49" class="svg-muted" font-size="10">Moon-centre sightlines · geometric, no refraction</text>
+
+              </g>
+            </svg>
+
+          </div>
+          <footer><div class="legend"><span style="color:var(--purple)"><i class="swatch"></i>parallax angle</span><span style="color:var(--gold)"><i class="swatch"></i>A–Moon range</span><span style="color:var(--cyan)"><i class="swatch"></i>B–Moon range</span></div>
+            <details class="angle-check" id="angleCalculation"><summary>Measuring the Moon’s distance using lunar parallax</summary>
+              <p id="angleInputs"></p><p id="baseAngles"></p><p id="derivedRanges"></p><p id="rangeCheck"></p><p>For scale: <a href="https://svs.gsfc.nasa.gov/5587/" style="color:var(--purple)">NASA’s lunar orbit reference</a> gives roughly 356,400–406,700 km from Earth’s centre.</p>
+            </details></footer>
+        </article>
+      </div>
+
+      <div class="metrics-strip">
+        <div class="metric-block"><p class="explain-copy">Altitude is the signed angle above each local horizon. Parallax is the angle between the sightlines at the Moon.</p><p class="explain-copy caution">Astronomy Engine · sea-level WGS84 observers · no refraction. These are model outputs, not independent measurements.</p><details><summary>Explain the geometry</summary><p class="explain-copy">The baseline is the straight chord between observers. Both panels look into their shared meridian plane; the second compresses lunar distance to make convergence visible.</p><div class="detail-grid">
+        <section class="metric-block">
+          <h3>Modelled local observations</h3>
+          <dl class="metric-grid">
+            <dt>Observer A altitude / azimuth</dt><dd class="a-value" id="altA">52.165° / 360.0°</dd>
+            <dt>Observer B altitude / azimuth</dt><dd class="b-value" id="altB">26.487° / 180.0°</dd>
+            <dt>Visibility</dt><dd id="visibility">Both above horizon</dd>
+            <dt>Meridian offset</dt><dd id="offsetMetric">0.00°</dd>
+          </dl>
+        </section>
+        <section class="metric-block">
+          <h3>Geometry result</h3>
+          <dl class="metric-grid">
+            <dt>Chord baseline AB</dt><dd id="baseline">9,724 km</dd>
+            <dt>Sightline parallax</dt><dd class="p-value" id="parallax">1.3726°</dd>
+            <dt>A–Moon / B–Moon</dt><dd id="ranges">394,703 / 396,862 km</dd>
+            <dt>Earth-centre–Moon</dt><dd id="earthMoon">399,761 km</dd>
+          </dl>
+        </section>
+        </div></details></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="astronomy.browser.min.js"></script>
+  <script src="geometry.js"></script>
+  <script>
+    try {
+      const saved = new URL(sessionStorage.getItem('moon-path-return') || '/', location.origin);
+      if (saved.origin === location.origin && saved.pathname === '/') document.getElementById('moonPathLink').href = '/' + saved.search;
+    } catch { /* Direct entry or storage disabled: use the ordinary home link. */ }
+  </script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const seed=Date.parse('2026-11-16T22:24:00Z');
+    const state = { anchor:seed, minutes: 0, latA: -53.1627, latB: 46.8126, lon: -71 };
+    const fmt = (n, digits = 1) => Number(n).toLocaleString(undefined, {minimumFractionDigits: digits, maximumFractionDigits: digits});
+    const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+    const rad = d => d * Math.PI / 180;
+    const pointOnEarth = (cx,cy,r,lat) => {const [x,,z]=Parallax.site(lat);return {x:cx+r*x/6378.137,y:cy-r*z/6378.137};};
+    const tangent = (p, cx, cy, length) => {
+      const dx = p.x - cx, dy = p.y - cy, mag = Math.hypot(dx,dy);
+      return { x: -dy/mag * length, y: dx/mag * length };
+    };
+    const line = (x1,y1,x2,y2,cls,color="") => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${cls}" ${color ? `stroke="${color}"` : ""}/>`;
+    const text = (x,y,value,cls="svg-label",anchor="start",size=12,weight=500) => `<text x="${x}" y="${y}" class="${cls}" text-anchor="${anchor}" font-size="${size}" font-weight="${weight}">${value}</text>`;
+
+    const values=()=>Parallax.snapshot(state.anchor+state.minutes*60000,state.lon,state.latA,state.latB);
+
+    function boundaries(id,lat){
+      const offsets=Parallax.events(state.anchor,state.lon,lat), marker=$(id);
+      if(!$(id+'Second')){const second=marker.cloneNode();second.id=id+'Second';marker.after(second);}
+      placeBoundary(id,offsets[0]??null);placeBoundary(id+'Second',offsets[1]??null);
+    }
+
+    function placeBoundary(id, minute) {
+      const marker=$(id);
+      marker.hidden=minute===null;
+      if(minute!==null) {
+        marker.style.left=`${((minute+720)/1440*100).toFixed(2)}%`;
+        marker.title=`Geometric horizon: ${new Date(state.anchor+minute*60000).toISOString()}`;
+      }
+    }
+
+    function renderLeft(v) {
+      const cx=160, cy=220, r=118;
+      const A=pointOnEarth(cx,cy,r,state.latA), B=pointOnEarth(cx,cy,r,state.latB);
+      const unit = p => { const m=Math.hypot(p.x,p.y); return {x:p.x/m,y:p.y/m}; };
+      const rightTangent = p => { const radial=unit({x:p.x-cx,y:p.y-cy}); let h={x:-radial.y,y:radial.x}; if(h.x<0) h={x:-h.x,y:-h.y}; return h; };
+      const endpoint = (p,d,length) => ({x:p.x+d.x*length,y:p.y+d.y*length});
+      const latitudeLine = (lat, cls='latitude-guide') => {
+        const y=cy-r*Math.sin(rad(lat)), half=Math.sqrt(Math.max(0,r*r-(y-cy)*(y-cy)));
+        return `<line x1="${cx-half}" y1="${y}" x2="${cx+half}" y2="${y}" class="${cls}"/>`;
+      };
+      const arcPath = (p,from,to,radius) => {
+        const s=endpoint(p,from,radius), e=endpoint(p,to,radius), cross=from.x*to.y-from.y*to.x;
+        return `<path d="M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${radius} ${radius} 0 0 ${cross>=0?1:0} ${e.x.toFixed(2)} ${e.y.toFixed(2)}" fill="none" stroke-width="2.5"/>`;
+      };
+      const observer = (p,color,label,alt,ray,isA) => {
+        const lat=rad(isA?state.latA:state.latB);let h={x:Math.sin(lat),y:Math.cos(lat)};if(h.x*ray.x+h.y*ray.y<0)h={x:-h.x,y:-h.y};
+        const visible=alt>=0, rayColor=visible?color:'#e38a82';
+        const horizonStart=endpoint(p,h,-48), horizonEnd=endpoint(p,h,76), sightEnd=endpoint(p,ray,520);
+        const inward={x:-Math.cos(lat),y:Math.sin(lat)}, square=11;
+        const q1=endpoint(p,inward,square), q2={x:q1.x+h.x*square,y:q1.y+h.y*square}, q3=endpoint(p,h,square);
+        // Keep the entire horizontal number clear of its sloping sightline, not just its anchor.
+        const dx=68, slope=ray.y/ray.x, nearY=p.y+dx*slope, farY=nearY+80*slope;
+        const above=Math.min(nearY,farY)-8, below=Math.max(nearY,farY)+23;
+        const preferAbove=h.y*ray.x<h.x*ray.y;
+        const angleLabel={x:p.x+dx,y:Math.abs(ray.x)<0.25||ray.x<0?p.y+(isA?26:-18):clamp(preferAbove&&above>=24||below>380?above:below,30,378)};
+        const labelPos=isA?{x:p.x-17,y:p.y+28}:{x:p.x-18,y:p.y-17};
+        const block=endpoint(p,ray,22), blockedLabel=isA?{x:p.x+48,y:p.y-48}:{x:p.x+48,y:p.y+55};
+        return `
+          ${line(cx,cy,p.x,p.y,'radius')}
+          <line x1="${horizonStart.x}" y1="${horizonStart.y}" x2="${horizonEnd.x}" y2="${horizonEnd.y}" class="horizon" stroke="${color}"/>
+          <line x1="${p.x}" y1="${p.y}" x2="${sightEnd.x}" y2="${sightEnd.y}" class="sight${visible?'':' blocked-sight'}" stroke="${rayColor}"/>
+          <path d="M ${q1.x} ${q1.y} L ${q2.x} ${q2.y} L ${q3.x} ${q3.y}" class="right-angle" stroke="#e7e1d6"/>
+          ${v.planeAngle<0.01?`<g stroke="${rayColor}">${arcPath(p,h,ray,isA?31:28)}</g>`:''}
+          <circle cx="${p.x}" cy="${p.y}" r="6.5" fill="${color}"/>
+          ${text(labelPos.x,labelPos.y,label,isA?'svg-a':'svg-b','start',17,800)}
+          ${text(angleLabel.x,angleLabel.y,`${alt.toFixed(3)}°`,(visible?(isA?'svg-a':'svg-b'):'blocked-label')+' altitude-label','start',16,750)}
+          ${visible?'':`<path d="M ${block.x-5} ${block.y-5} L ${block.x+5} ${block.y+5} M ${block.x+5} ${block.y-5} L ${block.x-5} ${block.y+5}" class="blocked-x"/>${text(blockedLabel.x,blockedLabel.y,'BELOW HORIZON · EARTH BLOCKS VIEW','blocked-label','start',9,800)}`}
+        `;
+      };
+      $('leftDynamic').innerHTML = `
+        <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r*(1-1/298.257223563)}" class="earth-fill"/>
+        ${latitudeLine(23.4393)}${latitudeLine(0,'latitude-guide equator')}${latitudeLine(-23.4393)}
+        <circle cx="${cx}" cy="${cy-r}" r="4" class="pole-marker"/><circle cx="${cx}" cy="${cy+r}" r="4" class="pole-marker"/>
+        <circle cx="${cx}" cy="${cy-r}" r="8" fill="none" stroke="#e7e1d6" opacity=".24"/><circle cx="${cx}" cy="${cy+r}" r="8" fill="none" stroke="#e7e1d6" opacity=".24"/>
+        ${text(cx,cy-r-14,'N','svg-label','middle',11,800)}${text(cx,cy+r+20,'S','svg-label','middle',11,800)}
+        <circle cx="${cx}" cy="${cy}" r="3.8" fill="#e7e1d6"/>${text(cx-13,cy+17,'O','svg-label','middle',14,750)}
+        ${observer(A,'#d4a24c','A',v.altitudeA,v.rayA,true)}
+        ${observer(B,'#35d2d1','B',v.altitudeB,v.rayB,false)}
+        ${text(22,28,`B · ${coordText(state.latB)} · ${coordText(state.lon,true)}`,'svg-b','start',12,750)}
+        ${text(22,391,`A · ${coordText(state.latA)} · ${coordText(state.lon,true)}`,'svg-a','start',12,750)}
+        ${text(418,54,'DASHED = tangent local horizons','svg-label','start',10,650)}
+        ${text(418,72,'SOLID = sightlines to the Moon','svg-label','start',10,650)}
+      `;
+    }
+
+    function renderRight(v) {
+      // Compress lunar distance only. Translate the entire section to keep a westward Moon in view.
+      const dx=400*v.m[0]/v.geo, dy=-400*v.m[2]/v.geo;
+      const scale=Math.min(1,140/Math.max(1,Math.abs(dy)));
+      const cx=150+Math.max(0,-dx*scale-95), cy=218, r=82;
+      const A=pointOnEarth(cx,cy,r,state.latA), B=pointOnEarth(cx,cy,r,state.latB);
+      const moon={x:cx+dx*scale,y:cy+dy*scale};
+      const toward=p=>{const x=p.x-moon.x,y=p.y-moon.y,d=Math.hypot(x,y)||1;return {x:x/d,y:y/d};};
+      const u=toward(A),w=toward(B),cross=u.x*w.y-u.y*w.x;
+      const labelX=clamp(moon.x+(dx<0?70:-65),68,550), labelY=clamp(moon.y-42,66,365);
+      const sightline=(p,color,visible)=>`<line x1="${p.x}" y1="${p.y}" x2="${moon.x}" y2="${moon.y}" class="sight${visible?'':' blocked-sight'}" stroke="${visible?color:'#e38a82'}"/>`;
+      const blockedMark=p=>`<path d="M ${p.x+8} ${p.y-5} L ${p.x+18} ${p.y+5} M ${p.x+18} ${p.y-5} L ${p.x+8} ${p.y+5}" class="blocked-x"/>`;
+      $('rightDynamic').innerHTML = `
+        <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r*(1-1/298.257223563)}" fill="url(#earthGlow2)" stroke="#8fc6ef" stroke-width="2.2"/>
+        <line x1="${cx-r}" y1="${cy}" x2="${cx+r}" y2="${cy}" class="latitude-guide equator"/>
+        ${line(cx,cy,A.x,A.y,'radius')}${line(cx,cy,B.x,B.y,'radius')}
+        ${line(A.x,A.y,B.x,B.y,'baseline')}
+        ${sightline(A,'#d4a24c',v.altitudeA>=0)}${sightline(B,'#35d2d1',v.altitudeB>=0)}
+        ${v.altitudeA>=0?'':blockedMark(A)}${v.altitudeB>=0?'':blockedMark(B)}
+        <circle cx="${A.x}" cy="${A.y}" r="6" fill="#d4a24c"/><circle cx="${B.x}" cy="${B.y}" r="6" fill="#35d2d1"/>
+        ${text(A.x+13,A.y+20,'A','svg-a','start',16,750)}${text(B.x+13,B.y-13,'B','svg-b','start',16,750)}
+        <circle cx="${moon.x}" cy="${moon.y}" r="18" fill="url(#moonGlow2)" stroke="#fff" stroke-width="1.1"/>
+        ${text(moon.x,moon.y-30,'M · MOON','svg-label','middle',12,700)}
+        ${v.baseline&&v.planeAngle<0.01?`<path d="M ${moon.x+45*u.x} ${moon.y+45*u.y} A 45 45 0 0 ${cross>0?1:0} ${moon.x+45*w.x} ${moon.y+45*w.y}" class="parallax-arc"/>`:''}
+        ${text(labelX,labelY,`${v.parallax.toFixed(4)}°`,'svg-p','middle',17,750)}
+        ${text(labelX,labelY-17,'3D PARALLAX','svg-p','middle',10,700)}
+        ${text(22,395,`Chord AB  ${fmt(v.baseline,0)} km`,'svg-muted','start',11,650)}
+        ${text(215,395,`A–M  ${fmt(v.aRange,0)} km`,'svg-a','start',11,650)}
+        ${text(415,395,`B–M  ${fmt(v.bRange,0)} km`,'svg-b','start',11,650)}
+        ${text(cx-32,cy+4,'EARTH','svg-label','middle',11,700)}
+      `;
+    }
+
+    function render() {
+      const v=values(), exact=Math.abs(v.meridianOffset)<0.001;
+      const instant=new Date(state.anchor+state.minutes*60000);
+      const utcText=`${instant.toISOString().slice(0,19).replace('T',' ')} UTC`;
+      $('utcReadout').textContent=utcText;
+      $('dateTime').step='0.001';$('dateTime').value=instant.toISOString().slice(0,-1);
+      $('resetButton').hidden=state.anchor===seed&&!state.minutes&&state.latA===-53.1627&&state.latB===46.8126&&state.lon===-71;
+      $('observerSummary').textContent=`Edit observers · ${coordText(state.latA)} / ${coordText(state.latB)} · ${coordText(state.lon,true)}`;
+      $('timeSlider').setAttribute('aria-valuetext',utcText);
+      $('meridianStatus').textContent=exact?'Moon aligned with shared longitude':`Moon ${Math.abs(v.meridianOffset).toFixed(2)}° ${v.meridianOffset<0?'east':'west'} of shared longitude`;
+      $('meridianStatus').classList.toggle('projected',!exact);
+      $('localPanel').classList.toggle('projected-state',!exact);
+      const updateVisibility=(id,label,alt)=>{ const el=$(id), visible=alt>=0;const magnitude=Math.abs(alt);const angle=magnitude<0.0005?'<0.001':magnitude.toFixed(magnitude<.05?3:1);el.textContent=alt===0?`${label} 0° · horizon boundary`:`${label} ${visible?'+':'−'}${angle}° · ${visible?'visible':'below horizon'}`; el.classList.toggle('below',!visible); };
+      updateVisibility('visibilityA','A',v.altitudeA); updateVisibility('visibilityB','B',v.altitudeB);
+      boundaries('boundaryA',state.latA);boundaries('boundaryB',state.latB);
+      $('leftNote').textContent=v.planeAngle<0.01?`The Moon lies nearly in the observers’ north–south plane${v.m[0]<0?', on the opposite meridian':''}. The drawn angles closely match the local altitudes.`:`Both drawings show the north–south component of the sightlines. The Moon is ${v.planeAngle.toFixed(2)}° outside that plane; the numbers give the true 3D angles.`;
+      for(const k of ['A','B']) $('alt'+k).textContent=`${v['altitude'+k].toFixed(3)}° / ${v['az'+k].toFixed(1)}°`;
+      $('visibility').textContent=v.altitudeA>=0&&v.altitudeB>=0?'Both above horizon':v.altitudeA>=0?'A visible · B blocked by Earth':v.altitudeB>=0?'B visible · A blocked by Earth':'Both blocked by Earth';
+      $('offsetMetric').textContent=`${Math.abs(v.meridianOffset).toFixed(4)}° ${v.meridianOffset<0?'east':'west'}`;
+      $('baseline').textContent=`${fmt(v.baseline,0)} km`;
+      $('parallax').textContent=`${v.parallax.toFixed(4)}°`;
+      const tri=Parallax.triangulate(state.latA,state.latB,v.altitudeA,v.altitudeB,v.azA,v.azB);
+      const separation=Math.abs(state.latB-state.latA), toward=Math.sign(state.latB-state.latA);
+      const facing=tri && v.planeAngle<.01 && toward*Math.cos(rad(v.azA))>.9999 && -toward*Math.cos(rad(v.azB))>.9999 && Math.abs(180-separation-v.altitudeA-v.altitudeB-tri.m)<.00005;
+      $('angleInputs').textContent=`Two observers on the same meridian compare the Moon’s height above their local horizons at the same moment: A = ${v.altitudeA.toFixed(3)}°, B = ${v.altitudeB.toFixed(3)}°. `+(v.altitudeA<0||v.altitudeB<0?'A negative angle means the Moon is below that observer’s horizon; that sightline is modelled, not visible.':facing?`A looks ${toward>0?'north':'south'}, B looks ${toward>0?'south':'north'}, and both look towards the same Moon.`:'');
+      $('baseAngles').textContent=!tri?'No usable triangle: coincident observers or parallel sightlines cannot determine a distance.':facing?`Because Earth’s surface is curved, the two horizons are tilted relative to each other by their latitude separation (${separation.toFixed(4)}°). The angle where the sightlines meet at the Moon is: Parallax = 180° − ${separation.toFixed(4)}° − ${v.altitudeA.toFixed(4)}° − ${v.altitudeB.toFixed(4)}° ≈ ${tri.m.toFixed(4)}°.`:`Here the latitude-subtraction shortcut does not apply. Using both the direction and the height of the Moon at each site gives the triangle’s angles at A and B. Parallax = 180° − ${tri.a.toFixed(4)}° − ${tri.b.toFixed(4)}° ≈ ${tri.m.toFixed(4)}°.`;
+      $('derivedRanges').innerHTML=tri?`The straight-line distance between the observers (AB) is ${fmt(tri.base,0)} km. Using the sine rule:<ul><li>Angle A = ${tri.a.toFixed(4)}°, angle B = ${tri.b.toFixed(4)}°</li><li>A–Moon = AB × sin B / sin M ≈ ${fmt(tri.base,0)} × sin(${tri.b.toFixed(4)}°) / sin(${tri.m.toFixed(4)}°) ≈ <strong>${fmt(tri.am,0)} km</strong></li><li>B–Moon = AB × sin A / sin M ≈ <strong>${fmt(tri.bm,0)} km</strong></li></ul>`:'';
+      $('rangeCheck').textContent=tri?`This gives an Earth-centre-to-Moon distance of ${fmt(tri.om,0)} km, matching the astronomical ephemeris to the nearest kilometre. The angles come from that same ephemeris, so this checks the geometry rather than independently measuring the Moon’s distance.`:'';
+      $('ranges').textContent=`${fmt(v.aRange,0)} / ${fmt(v.bRange,0)} km`;
+      $('earthMoon').textContent=`${fmt(v.geo,0)} km`;
+      renderLeft(v); renderRight(v);
+    }
+
+    const hemispheres=()=>$('coordFormat').value==='hemisphere';
+    const direction=(v,lon)=>lon?(v<0?'W':'E'):(v<0?'S':'N');
+    const coordText=(v,lon=false)=>hemispheres()?`${Math.abs(v)}° ${direction(v,lon)}`:`${v}°`;
+    function syncCoordinates(){
+      for(const [id,key] of [['latA','latA'],['latB','latB'],['longitude','lon']]){
+        $(id).value=hemispheres()?Math.abs(state[key]):state[key];$(id).setCustomValidity('');
+        const select=$(id+'Direction');select.hidden=!hemispheres();select.value=direction(state[key],id==='longitude');
+      }
+    }
+    for(const id of ['latA','latB','longitude']) {
+      const field=$(id), lon=id==='longitude', key=lon?'lon':id;
+      const select=document.createElement('select');select.id=id+'Direction';select.hidden=true;
+      select.setAttribute('aria-label',field.getAttribute('aria-label')+' hemisphere');
+      for(const letter of (lon?'EW':'NS')) select.add(new Option(letter,letter));
+      field.parentElement.append(select);
+      function commit(reportError=false){
+        const raw=field.value.trim().replace('−','-'), n=Number(raw), max=lon?180:90;
+        if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw)||Math.abs(n)>max||(hemispheres()&&n<0)){
+          field.setCustomValidity(`Enter a number from ${hemispheres()?0:-max} to ${max}.`);if(reportError)field.reportValidity();return;
+        }
+        state[key]=hemispheres()&&'SW'.includes(select.value)?-n:n;field.setCustomValidity('');render();
+      }
+      select.addEventListener('change',()=>commit(true));
+      field.addEventListener('input',()=>commit());field.addEventListener('change',()=>commit(true));field.addEventListener('keydown',e=>{if(e.key==='Enter')commit(true)});
+    }
+    $('timeSlider').addEventListener('input',e=>{
+      state.minutes=Number(e.target.value);render();
+    });
+    $('dateTime').addEventListener('change',e=>{
+      const ms=Date.parse(e.target.value+'Z');if(Number.isFinite(ms))recenter(ms);
+    });
+    $('stepBack').addEventListener('click',()=>{ $('timeSlider').value=clamp(state.minutes-5,-720,720); $('timeSlider').dispatchEvent(new Event('input')); });
+    $('stepForward').addEventListener('click',()=>{ $('timeSlider').value=clamp(state.minutes+5,-720,720); $('timeSlider').dispatchEvent(new Event('input')); });
+    function recenter(ms){state.anchor=ms;state.minutes=0;$('timeSlider').value=0;render();}
+    $('transitButton').addEventListener('click',()=>recenter(Parallax.transit(state.anchor+state.minutes*60000,state.lon)));
+    $('coordFormat').addEventListener('change',()=>{syncCoordinates();render()});
+    syncCoordinates();
+    $('resetButton').addEventListener('click',()=>{ state.latA=-53.1627; state.latB=46.8126; state.lon=-71; syncCoordinates(); recenter(seed); });
+    const compact=matchMedia('(max-width:1050px)');$('observerEdit').open=!compact.matches;compact.addEventListener('change',e=>{$('observerEdit').open=!e.matches});
+    render();
+  </script>
+</body>
+</html>
