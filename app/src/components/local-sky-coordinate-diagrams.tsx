@@ -158,9 +158,9 @@ export function LocalSkyCoordinateDiagrams() {
             </text>
           </svg>
           <figcaption className="border-t border-line px-3 py-2 text-xs leading-5 text-muted">
-            Altitude is measured from the geometric local horizontal. Elevation,
-            terrain and refraction can move the visible horizon; they are not
-            modelled here.
+            Altitude is measured from the local horizontal. The app displays
+            standard-atmosphere apparent altitude and keeps geometric altitude
+            in Explain. Observer elevation and terrain are not modelled.
           </figcaption>
         </figure>
 
@@ -294,7 +294,7 @@ export function LocalSkyCoordinateDiagrams() {
 
       <div className="rounded-lg border border-line bg-bg/45 px-3 py-2.5 text-xs leading-5 text-muted">
         <p className="font-semibold text-fg">
-          At its highest point that day
+          Geometric altitude at its highest point that day
           <span className="font-normal text-muted">
             {" "}
             (upper meridian transit: when the Moon crosses the north–south line
@@ -302,11 +302,13 @@ export function LocalSkyCoordinateDiagrams() {
           </span>
         </p>
         <p className="mt-1 font-mono text-sm text-fg">
-          altitude = 90° − | latitude − declination |
+          geometric altitude = 90° − | latitude − declination |
         </p>
         <p className="mt-1">
-          Rearranged: declination = latitude ± (90° − altitude). Use the branch
-          matching whether the Moon passes south or north of the zenith.
+          Refraction is added afterward for the displayed top of path.
+          Rearranged geometrically: declination = latitude ± (90° − altitude).
+          Use the branch matching whether the Moon passes south or north of the
+          zenith.
         </p>
       </div>
     </section>

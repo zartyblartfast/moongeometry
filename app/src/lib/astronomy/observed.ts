@@ -7,6 +7,7 @@ import type {
   FrozenBodyOrbitalState,
   HorizontalPosition,
 } from "./provider.ts";
+import { standardAtmosphereRefraction } from "./refraction.ts";
 
 const SOLAR_DAY_MS = 86_400_000;
 const SIDEREAL_DAY_MS = SOLAR_DAY_MS * (360 / 360.98564736629);
@@ -58,7 +59,12 @@ function timedSample(
   orbitalState: FrozenBodyOrbitalState,
 ): TimedSample {
   const horizontal = horizontalAt(provider, t, latDeg, lonDeg, orbitalState);
-  return { t, altDeg: horizontal.altitudeDeg, azDeg: horizontal.azimuthDeg };
+  return {
+    t,
+    altDeg: standardAtmosphereRefraction(horizontal.altitudeDeg)
+      .apparentAltitudeDeg,
+    azDeg: horizontal.azimuthDeg,
+  };
 }
 
 type HorizonCrossing = { t: number; direction: "rise" | "set" };
@@ -127,14 +133,15 @@ function horizonCrossings(sampleAt: (t: number) => TimedSample, points: TimedSam
 }
 
 /**
- * Topocentric geometric diurnal track for the selected body.
+ * Topocentric apparent diurnal track for the selected body.
  *
  * The body's geocentric orbital state is held at `orbitInstant` while the
  * observer/Earth-rotation clock is sampled across one sidereal turn around
  * `instant`. This keeps Slide-the-Moon as a smooth same-clock date step and
- * avoids a local-midnight arc swap. Rise/set crossings are zero-altitude
- * geometric crossings; no library rise/set/refraction/apparent-radius routine is
- * used here.
+ * avoids a local-midnight arc swap. Standard-atmosphere refraction is applied
+ * after the geometric topocentric conversion. Rise/set crossings are apparent
+ * centre crossings at altitude 0°; no library rise/set/apparent-radius routine
+ * is used here.
  */
 export function observedSkyPath(
   instant: number,

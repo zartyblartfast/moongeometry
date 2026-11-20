@@ -465,7 +465,7 @@ export async function createShareInfographic(input: ShareInfographicInput) {
 
   drawText(
     ctx,
-    "MoonGeometry · topocentric ephemeris · geometric horizon · no refraction",
+    "MoonGeometry · topocentric ephemeris · standard-atmosphere apparent altitude",
     74,
     866,
     "400 16px Outfit, Segoe UI, sans-serif",

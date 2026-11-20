@@ -64,7 +64,7 @@ export function OrientationControl({
   orientationHook = useTrueNorthOrientation,
   children,
 }: Props) {
-  const moonAltitudeDeg = snapshot.moon.horizontal.altitudeDeg;
+  const moonAltitudeDeg = snapshot.moon.horizontal.apparentAltitudeDeg;
   const moonAzimuthDeg = snapshot.moon.horizontal.azimuthDeg;
   const orientation = orientationHook({
     selectedLatDeg,

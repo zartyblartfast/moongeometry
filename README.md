@@ -47,7 +47,7 @@ The current screen contains two main synchronized views:
 
 2. **Local sky path**
    - A 2D backyard-sky chart showing the resulting apparent Moon path for the selected latitude, longitude, date and mean solar time.
-   - It displays ephemeris-backed Moon altitude/azimuth, declination, phase, illumination and geometric rise/set, plus the altitude relationship.
+   - It displays ephemeris-backed apparent Moon altitude/azimuth, declination, phase, illumination and apparent-centre rise/set, plus the underlying geometric altitude relationship.
 
 The controls include:
 
@@ -82,9 +82,9 @@ The app also includes an **Explain** panel with:
 
 The app separates ephemeris-backed observed values from an intentionally schematic teaching diagram.
 
-The user-facing Sun and Moon altitude, azimuth and declination; lunar phase, illumination and ecliptic coordinates; sky dots and arcs; and geometric rise/set are produced locally through the pinned `astronomy-engine` ephemeris provider. Local-sky positions are topocentric and include observer parallax. No runtime network ephemeris call is made.
+The user-facing Sun and Moon altitude, azimuth and declination; lunar phase, illumination and ecliptic coordinates; sky dots and arcs; and apparent-centre rise/set are produced locally through the pinned `astronomy-engine` ephemeris provider. Local-sky positions are topocentric and include observer parallax. No runtime network ephemeris call is made.
 
-Rise/set is the app's own geometric center crossing at altitude 0°. It does not include atmospheric refraction, apparent Sun/Moon radius, terrain or weather, so its times should not be treated as conventional apparent-rise/set almanac times.
+The provider retains geometric altitude for the spherical-astronomy explanation and airless comparisons. The local-sky display then applies Astronomy Engine's standard sea-level atmospheric-refraction model. Rise/set is the app's own Moon-centre crossing at apparent altitude 0°; it does not include apparent Sun/Moon radius, observer elevation, terrain or actual weather, so its times can still differ from conventional almanac or local observed times.
 
 The editable date/time remains **mean solar time** at the selected longitude. UTC and local civil time are read-only references for the same instant, not additional editable clocks. Civil time is derived from an approximate coordinate-to-zone lookup and the browser's time-zone data.
 
@@ -158,6 +158,7 @@ The active observed model uses an ephemeris provider, while the presentation rem
 
 - topocentric equatorial-of-date positions and observer parallax
 - spherical astronomy for converting equatorial coordinates to geometric local altitude/azimuth
+- standard-atmosphere refraction for displayed apparent altitude and centre rise/set
 - lunar orbital inclination relative to the ecliptic
 - ephemeris-backed lunar phase and illumination
 - historical context from Kepler, Newton and Cassini

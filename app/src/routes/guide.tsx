@@ -136,17 +136,18 @@ function Guide() {
             </p>
             <div className="rounded-card border border-line bg-bg/50 p-4">
               <p className="text-xs font-semibold tracking-widest text-gold uppercase">
-                At meridian transit
+                Geometric altitude at meridian transit
               </p>
               <p className="mt-2 overflow-x-auto font-mono text-base text-fg">
-                altitude = 90° − | observer latitude − Moon declination |
+                geometric altitude = 90° − | observer latitude − Moon declination |
               </p>
             </div>
             <p>
               Earth’s rotation carries the Moon’s daily arc from east to west.
               Changing the date alters the Moon’s orbital position and
               declination, so the entire arc shifts north or south and reaches a
-              different maximum altitude.
+              different maximum altitude. The displayed top of path adds the
+              standard-atmosphere refraction correction afterward.
             </p>
           </GuideSection>
 
@@ -179,7 +180,7 @@ function Guide() {
                     <th className="px-3 py-2">Preset</th>
                     <th className="px-3 py-2">Declination</th>
                     <th className="px-3 py-2">Top of path</th>
-                    <th className="px-3 py-2">Geometric rise / set</th>
+                    <th className="px-3 py-2">Apparent centre rise / set</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -192,7 +193,7 @@ function Guide() {
                     </td>
                     <td className="px-3 py-2">+26.9°</td>
                     <td className="px-3 py-2">76.3°</td>
-                    <td className="px-3 py-2">16:26 / 07:40 mean solar</td>
+                    <td className="px-3 py-2">16:22 / 07:44 mean solar</td>
                   </tr>
                   <tr className="border-t border-line">
                     <td className="px-3 py-2 text-fg">
@@ -202,8 +203,8 @@ function Guide() {
                       </span>
                     </td>
                     <td className="px-3 py-2">−27.8°</td>
-                    <td className="px-3 py-2">21.4°</td>
-                    <td className="px-3 py-2">20:01 / 04:19 mean solar</td>
+                    <td className="px-3 py-2">21.5°</td>
+                    <td className="px-3 py-2">19:57 / 04:23 mean solar</td>
                   </tr>
                 </tbody>
               </table>
@@ -232,11 +233,13 @@ function Guide() {
                 observer parallax.
               </li>
               <li>
-                Rise and set are geometric centre crossings at altitude 0°.
+                Altitude, the local sky path, and rise/set include a standard
+                sea-level atmospheric-refraction model.
               </li>
               <li>
-                Atmospheric refraction, the Moon’s apparent radius, terrain,
-                buildings and weather are not included.
+                Rise/set is the Moon centre crossing apparent altitude 0°. The
+                Moon’s apparent radius, observer elevation, terrain, buildings
+                and actual weather are not included.
               </li>
               <li>
                 Object sizes, distances, orbit hoops, sunlight rays and the
@@ -271,9 +274,10 @@ function Guide() {
               different altitudes for different observers.
             </Faq>
             <Faq question="Why might rise and set differ from another service?">
-              This app uses a geometric centre crossing at altitude 0°. Other
-              services may include refraction, the Moon’s apparent radius,
-              terrain or different conventions.
+              This app uses a standard atmosphere and the Moon centre crossing
+              apparent altitude 0°. Other services may use the upper edge of the
+              Moon, local pressure and temperature, observer elevation, terrain
+              or different conventions.
             </Faq>
             <Faq question="What does “distances fiction” mean?">
               The directional angles are meaningful, but the displayed sizes and

@@ -33,6 +33,7 @@ import type {
   HorizontalPosition,
   MoonState,
 } from "./provider.ts";
+import { withStandardAtmosphereRefraction } from "./refraction.ts";
 
 const DEG_TO_RAD = Math.PI / 180;
 const HOURS_TO_RAD = Math.PI / 12;
@@ -139,7 +140,7 @@ function bodyState(body: Body.Sun | Body.Moon, orbitDate: Date, horizontalDate: 
       dec: geocentricEquatorial.dec * DEG_TO_RAD,
     },
     observedEquatorial: observed.equatorial,
-    horizontal: observed.horizontal,
+    horizontal: withStandardAtmosphereRefraction(observed.horizontal),
     geocentricUnit: unitFromVector(geocentric),
   };
 }

@@ -54,7 +54,7 @@ export function SkyChart({
   const { cx, cy, horizonRadius: radius } = layout;
   const moonRuns = runs(moonPath.samples, layout, orientationHeadingDeg);
   const sunRuns = runs(sunPath.samples, layout, orientationHeadingDeg);
-  const moonAlt = snapshot.moon.horizontal.altitudeDeg;
+  const moonAlt = snapshot.moon.horizontal.apparentAltitudeDeg;
   const moonAz = snapshot.moon.horizontal.azimuthDeg;
   const now =
     moonAlt > -0.4
@@ -65,7 +65,7 @@ export function SkyChart({
           orientationHeadingDeg,
         )
       : null;
-  const sunAlt = snapshot.sun.horizontal.altitudeDeg;
+  const sunAlt = snapshot.sun.horizontal.apparentAltitudeDeg;
   const sunAz = snapshot.sun.horizontal.azimuthDeg;
   const sunNow =
     sunAlt > -0.4

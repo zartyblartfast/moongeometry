@@ -1,5 +1,6 @@
 import { altAz, daysSinceJ2000, moonEcliptic, moonEquatorial, snapshot, sunEquatorial, wrap360 } from "../astro.ts";
 import type { AstronomyBody, AstronomyProvider, BodyState, FrozenBodyOrbitalState, HorizontalPosition } from "./provider.ts";
+import { withStandardAtmosphereRefraction } from "./refraction.ts";
 
 const RAD_TO_DEG = 180 / Math.PI;
 const MEAN_SUN_DISTANCE_AU = 1;
@@ -65,7 +66,9 @@ export const simpleAstronomyProvider: AstronomyProvider = {
         ra: direct.sun.ra,
         dec: direct.sun.dec,
       },
-      horizontal: horizontalFromRadians(direct.sunHz.alt, direct.sunHz.az, direct.sunHz.ha),
+      horizontal: withStandardAtmosphereRefraction(
+        horizontalFromRadians(direct.sunHz.alt, direct.sunHz.az, direct.sunHz.ha),
+      ),
       geocentricUnit: direct.sun.unit,
     };
 
@@ -81,7 +84,9 @@ export const simpleAstronomyProvider: AstronomyProvider = {
           ra: direct.moon.ra,
           dec: direct.moon.dec,
         },
-        horizontal: horizontalFromRadians(direct.moonHz.alt, direct.moonHz.az, direct.moonHz.ha),
+        horizontal: withStandardAtmosphereRefraction(
+          horizontalFromRadians(direct.moonHz.alt, direct.moonHz.az, direct.moonHz.ha),
+        ),
         geocentricUnit: direct.moon.unit,
         ecliptic: {
           longitudeDeg: wrap360(moonEclipticRadians.lon * RAD_TO_DEG),

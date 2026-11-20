@@ -245,7 +245,9 @@ export function MoonApp() {
   );
   const sky = observed.snapshot;
   const ev = observed.moonPath;
-  const altDeg = sky.moon.horizontal.altitudeDeg;
+  const geometricAltDeg = sky.moon.horizontal.altitudeDeg;
+  const refractionDeg = sky.moon.horizontal.refractionDeg;
+  const altDeg = sky.moon.horizontal.apparentAltitudeDeg;
   const azDeg = sky.moon.horizontal.azimuthDeg;
   const hourAngleDeg = (sky.moon.horizontal.hourAngle * 180) / Math.PI;
   const moonEclLonDeg = sky.moon.ecliptic.longitudeDeg;
@@ -660,8 +662,8 @@ export function MoonApp() {
                   <Stat k="Set" v={setValue} />
                 </dl>
                 <p className="text-sm text-fg">
-                  At this declination: h at meridian = 90° − |{lat.toFixed(1)}°
-                  − {deg1(sky.decDeg)}|
+                  Geometric h at meridian = 90° − |{lat.toFixed(1)}° −{" "}
+                  {deg1(sky.decDeg)}|; the displayed path adds refraction.
                 </p>
               </section>
             )}
@@ -778,8 +780,9 @@ export function MoonApp() {
               />
             </label>
             <p className="text-xs text-muted sm:col-span-2 lg:col-span-9">
-              Topocentric ephemeris positions. Geometric rise/set. No
-              refraction. Distances remain schematic. Drag the model to turn it.
+              Apparent altitude and centre rise/set use a standard atmosphere.
+              Terrain, weather and the Moon’s apparent edge are not included.
+              Distances remain schematic. Drag the model to turn it.
               In Edge-on view, drag the north-axis tip to level the equator or
               ecliptic. The Earth spin slider sets the pace, from one night up
               to a whole year. Slide the Moon holds the clock and lets
@@ -799,6 +802,8 @@ export function MoonApp() {
           phaseName={sky.moon.phaseName}
           illumination={sky.moon.illumination}
           altitudeDeg={altDeg}
+          geometricAltitudeDeg={geometricAltDeg}
+          refractionDeg={refractionDeg}
           azimuthDeg={azDeg}
           declinationDeg={sky.decDeg}
           hourAngleDeg={hourAngleDeg}
@@ -832,6 +837,8 @@ function ExplainPanel({
   phaseName,
   illumination,
   altitudeDeg,
+  geometricAltitudeDeg,
+  refractionDeg,
   azimuthDeg,
   declinationDeg,
   hourAngleDeg,
@@ -849,6 +856,8 @@ function ExplainPanel({
   phaseName: string;
   illumination: number;
   altitudeDeg: number;
+  geometricAltitudeDeg: number;
+  refractionDeg: number;
   azimuthDeg: number;
   declinationDeg: number;
   hourAngleDeg: number;
@@ -859,6 +868,7 @@ function ExplainPanel({
 }) {
   const instant = useMoon((s) => s.instant);
   const simulated = useMoon((s) => s.orbit !== s.instant || s.playing === "slide");
+  const refractionLabel = `${(refractionDeg * 60).toFixed(1)}′`;
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/55 p-3"
@@ -931,7 +941,7 @@ function ExplainPanel({
                     `${phaseName}, ${Math.round(illumination * 100)}% lit`,
                   ],
                   [
-                    "Altitude",
+                    "Apparent altitude",
                     altitudeDeg < 0 ? "Below horizon" : deg1(altitudeDeg),
                   ],
                   ["Azimuth", `${deg1(azimuthDeg)} · ${compass(azimuthDeg)}`],
@@ -976,7 +986,9 @@ function ExplainPanel({
               <h3 className="text-base text-fg">Calculated results · Moon centre</h3>
               <ValueGrid
                 rows={[
-                  ["Altitude result", deg1(altitudeDeg)],
+                  ["Geometric altitude", deg1(geometricAltitudeDeg)],
+                  ["Atmospheric refraction", `+${refractionLabel}`],
+                  ["Apparent altitude", deg1(altitudeDeg)],
                   [
                     "Azimuth result",
                     `${deg1(azimuthDeg)} · ${compass(azimuthDeg)}`,
@@ -988,13 +1000,19 @@ function ExplainPanel({
                 <div>φ = observer latitude = {deg1(lat)}</div>
                 <div>δ = Moon declination = {deg1(declinationDeg)}</div>
                 <div>H = local hour angle = {deg1(hourAngleDeg)}</div>
-                <div>h = Moon altitude = {deg1(altitudeDeg)}</div>
+                <div>h geometric = {deg1(geometricAltitudeDeg)}</div>
+                <div>
+                  h apparent = h geometric + {refractionLabel} ={" "}
+                  {deg1(altitudeDeg)}
+                </div>
               </div>
               <p>
                 The ephemeris supplies the Moon's topocentric equatorial-of-date
                 declination and hour angle after observer parallax is applied.
                 This standard spherical-astronomy conversion turns those values
-                into geometric local horizon coordinates.
+                into geometric local horizon coordinates. A standard sea-level
+                atmosphere is then used to lift the altitude by the displayed
+                refraction amount; azimuth is unchanged.
               </p>
             </div>
           ) : null}
@@ -1014,8 +1032,9 @@ function ExplainPanel({
                   <strong className="text-fg">Implemented here:</strong>{" "}
                   ephemeris-backed Sun and Moon directions, lunar ecliptic
                   coordinates, phase and illumination; topocentric declination,
-                  altitude and azimuth; and locally sampled sky paths with
-                  geometric rise/set.
+                  geometric and standard-atmosphere apparent altitude and
+                  azimuth; and locally sampled sky paths with apparent-centre
+                  rise/set.
                 </li>
                 <li>
                   <strong className="text-fg">Kepler</strong> provides
@@ -1087,9 +1106,10 @@ function ExplainPanel({
               </p>
               <ul className="list-disc space-y-2 pl-5">
                 <li>
-                  Rise/set is the app's geometric center crossing at altitude
-                  0°: no atmospheric refraction, apparent disk radius, terrain
-                  or weather.
+                  Apparent altitude and rise/set use a standard sea-level
+                  atmosphere. Rise/set is the Moon centre crossing apparent
+                  altitude 0°; apparent disk radius, terrain, observer elevation
+                  and actual weather are not included.
                 </li>
                 <li>
                   Object sizes, distances, orbit-hoop radius, sunlight-ray

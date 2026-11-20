@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   Body,
@@ -37,10 +38,12 @@ import { ephemerisAstronomyProvider } from "./astronomy/ephemeris-provider.ts";
 import { referenceCases, simpleVsEphemerisCases } from "./astronomy/fixtures/reference-cases.ts";
 import { observedSkyPath, observedSnapshot, observedViewState } from "./astronomy/observed.ts";
 import type { AstronomyProvider } from "./astronomy/provider.ts";
+import { standardAtmosphereRefraction } from "./astronomy/refraction.ts";
 import { simpleAstronomyProvider } from "./astronomy/simple-provider.ts";
 
 const DEG = Math.PI / 180;
 const CLOSE = 1e-12;
+const APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG = -0.573875490824591;
 
 function assertClose(actual: number, expected: number, tolerance = CLOSE): void {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} vs ${expected}`);
@@ -68,6 +71,17 @@ function altitudeFromEquatorial(latDeg: number, decRad: number, hourAngleRad: nu
       + Math.cos(latRad) * Math.cos(decRad) * Math.cos(hourAngleRad),
   ) / DEG;
 }
+
+test("standard atmosphere refraction exposes geometric, lift, and apparent altitude", () => {
+  const horizon = standardAtmosphereRefraction(0);
+  assertClose(horizon.geometricAltitudeDeg, 0);
+  assertClose(horizon.refractionDeg, 0.4830321230741662, 1e-12);
+  assertClose(horizon.apparentAltitudeDeg, horizon.geometricAltitudeDeg + horizon.refractionDeg);
+
+  const zenith = standardAtmosphereRefraction(90);
+  assertClose(zenith.refractionDeg, 0);
+  assertClose(zenith.apparentAltitudeDeg, 90);
+});
 
 function splitClockTopocentricHorizontal(
   body: Body.Sun | Body.Moon,
@@ -178,6 +192,64 @@ test("ephemeris provider keeps schematic fields geocentric and applies observer 
 
   const shiftedOrbit = ephemerisAstronomyProvider.snapshot({ ...input, orbitInstant: input.orbitInstant + 24 * 60 * 60_000 });
   assert.ok(angleDeltaDeg(shiftedOrbit.moon.ecliptic.longitudeDeg, actual.moon.ecliptic.longitudeDeg) > 10);
+});
+
+test("provider snapshots keep geometric altitude and add standard apparent altitude", () => {
+  const input = {
+    instant: Date.UTC(2026, 10, 19, 18, 0, 0),
+    orbitInstant: Date.UTC(2026, 10, 19, 18, 0, 0),
+    latDeg: 51.5,
+    lonDeg: 0,
+  };
+
+  for (const provider of [simpleAstronomyProvider, ephemerisAstronomyProvider]) {
+    const snapshot = provider.snapshot(input);
+    for (const body of [snapshot.sun, snapshot.moon]) {
+      const expected = standardAtmosphereRefraction(body.horizontal.altitudeDeg);
+      assertClose(body.horizontal.refractionDeg, expected.refractionDeg, 1e-12);
+      assertClose(body.horizontal.apparentAltitudeDeg, expected.apparentAltitudeDeg, 1e-12);
+    }
+  }
+});
+
+test("local sky consumers use apparent altitude while Explain preserves geometric altitude", () => {
+  const moonApp = readFileSync(
+    new URL("../components/moon-app.tsx", import.meta.url),
+    "utf8",
+  );
+  const skyChart = readFileSync(
+    new URL("../components/sky-chart.tsx", import.meta.url),
+    "utf8",
+  );
+  const orientation = readFileSync(
+    new URL("../components/orientation-control.tsx", import.meta.url),
+    "utf8",
+  );
+  const coordinateDiagrams = readFileSync(
+    new URL("../components/local-sky-coordinate-diagrams.tsx", import.meta.url),
+    "utf8",
+  );
+  const guide = readFileSync(
+    new URL("../routes/guide.tsx", import.meta.url),
+    "utf8",
+  );
+  const readme = readFileSync(
+    new URL("../../../README.md", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(moonApp, /const altDeg = sky\.moon\.horizontal\.apparentAltitudeDeg/);
+  assert.match(moonApp, /Geometric altitude/);
+  assert.match(moonApp, /Atmospheric refraction/);
+  assert.match(moonApp, /standard sea-level\s+atmosphere/);
+  assert.match(skyChart, /snapshot\.moon\.horizontal\.apparentAltitudeDeg/);
+  assert.match(orientation, /snapshot\.moon\.horizontal\.apparentAltitudeDeg/);
+  assert.match(coordinateDiagrams, /standard-atmosphere apparent altitude/);
+  assert.match(coordinateDiagrams, /geometric altitude = 90°/);
+  assert.match(guide, /geometric altitude = 90°/);
+  assert.match(readme, /apparent-centre rise\/set/);
+  assert.doesNotMatch(moonApp, /Geometric rise\/set|No\s+refraction/);
+  assert.doesNotMatch(readme, /geometric rise\/set|does not include atmospheric refraction/i);
 });
 
 test("displayed topocentric equatorial values reconstruct geometric altitude", () => {
@@ -366,7 +438,10 @@ test("observed ephemeris sky paths keep the frozen-orbit Moon and Sun dots on th
     let nearest = 999;
     for (const sample of path.samples) {
       const daz = angleDeltaDeg(sample.azDeg, horizontal.azimuthDeg);
-      nearest = Math.min(nearest, Math.hypot(daz, sample.altDeg - horizontal.altitudeDeg));
+      nearest = Math.min(
+        nearest,
+        Math.hypot(daz, sample.altDeg - horizontal.apparentAltitudeDeg),
+      );
     }
     assert.ok(nearest < 1e-9, `${name} is ${nearest}° off its ephemeris path`);
   }
@@ -416,14 +491,15 @@ function syntheticHorizontalProvider(
   };
 }
 
-test("observed rise and set refine off-grid geometric zero-altitude crossings", () => {
+test("observed rise and set refine off-grid apparent-centre horizon crossings", () => {
   const orbitInstant = Date.UTC(2026, 9, 2, 3, 0, 0);
   const instant = Date.UTC(2026, 9, 2, 3, 0, 0);
   const siderealDayMs = 86_400_000 * (360 / 360.98564736629);
   const phaseOrigin = instant + 137_000;
   const omega = (Math.PI * 2) / siderealDayMs;
-  const expectedRise = phaseOrigin - (Math.acos(0.5) / omega);
-  const expectedSet = phaseOrigin + (Math.acos(0.5) / omega);
+  const crossingCosine = 0.5 + APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG;
+  const expectedRise = phaseOrigin - (Math.acos(crossingCosine) / omega);
+  const expectedSet = phaseOrigin + (Math.acos(crossingCosine) / omega);
   const seenOrbitInstants = new Set<number>();
   const synthetic = syntheticHorizontalProvider((t) => Math.cos((t - phaseOrigin) * omega) - 0.5);
   const provider: AstronomyProvider = {
@@ -449,7 +525,12 @@ test("observed events find a very brief rise between coarse samples near a tange
   const peak = instant + 2.5 * 60_000;
   const halfWidth = 45_000;
   const threshold = Math.cos(omega * halfWidth);
-  const synthetic = syntheticHorizontalProvider((t) => Math.cos(omega * (t - peak)) - threshold);
+  const synthetic = syntheticHorizontalProvider(
+    (t) =>
+      APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG
+      + Math.cos(omega * (t - peak))
+      - threshold,
+  );
 
   const path = observedSkyPath(instant, 80, 0, "moon", instant, synthetic.provider);
 
@@ -467,7 +548,12 @@ test("observed events find a very brief dip between coarse samples near a tangen
   const trough = instant + 2.5 * 60_000;
   const halfWidth = 45_000;
   const threshold = Math.cos(omega * halfWidth);
-  const synthetic = syntheticHorizontalProvider((t) => threshold - Math.cos(omega * (t - trough)));
+  const synthetic = syntheticHorizontalProvider(
+    (t) =>
+      APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG
+      + threshold
+      - Math.cos(omega * (t - trough)),
+  );
 
   const path = observedSkyPath(instant, 80, 0, "moon", instant, synthetic.provider);
 
@@ -483,10 +569,34 @@ test("observed events classify strict and tangent circumpolar tracks without fal
   const omega = (Math.PI * 2) / siderealDayMs;
   const center = instant + 2.5 * 60_000;
   const cases = [
-    { name: "always up", altitude: (t: number) => 1 + 0.5 * Math.cos(omega * (t - center)), up: true, down: false },
-    { name: "always down", altitude: (t: number) => -1 + 0.5 * Math.cos(omega * (t - center)), up: false, down: true },
-    { name: "tangent minimum", altitude: (t: number) => 1 - Math.cos(omega * (t - center)), up: true, down: false },
-    { name: "tangent maximum", altitude: (t: number) => Math.cos(omega * (t - center)) - 1, up: false, down: true },
+    {
+      name: "always up",
+      altitude: (t: number) =>
+        APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG + 1 + 0.5 * Math.cos(omega * (t - center)),
+      up: true,
+      down: false,
+    },
+    {
+      name: "always down",
+      altitude: (t: number) =>
+        APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG - 1 + 0.5 * Math.cos(omega * (t - center)),
+      up: false,
+      down: true,
+    },
+    {
+      name: "tangent minimum",
+      altitude: (t: number) =>
+        APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG + 1 - Math.cos(omega * (t - center)),
+      up: true,
+      down: false,
+    },
+    {
+      name: "tangent maximum",
+      altitude: (t: number) =>
+        APPARENT_HORIZON_GEOMETRIC_ALTITUDE_DEG + Math.cos(omega * (t - center)) - 1,
+      up: false,
+      down: true,
+    },
   ];
 
   for (const scenario of cases) {
@@ -514,7 +624,13 @@ test("observed ephemeris sky path uses orbitInstant for smooth date-step drift w
   const path = observedSkyPath(instant, lat, lon, "moon", instant + 86_400_000);
   let nearest = 999;
   for (const sample of path.samples) {
-    nearest = Math.min(nearest, Math.hypot(angleDeltaDeg(sample.azDeg, now.azimuthDeg), sample.altDeg - now.altitudeDeg));
+    nearest = Math.min(
+      nearest,
+      Math.hypot(
+        angleDeltaDeg(sample.azDeg, now.azimuthDeg),
+        sample.altDeg - now.apparentAltitudeDeg,
+      ),
+    );
   }
   assert.ok(nearest < 1e-9, `date-stepped dot is ${nearest}° off its arc`);
 });

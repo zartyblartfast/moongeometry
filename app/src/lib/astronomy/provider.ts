@@ -50,6 +50,13 @@ export type HorizontalPosition = {
   hourAngle: number;
 };
 
+export type ObservedHorizontalPosition = HorizontalPosition & {
+  /** Standard-atmosphere lift added to geometric altitude, degrees. */
+  refractionDeg: number;
+  /** Apparent altitude under the standard sea-level atmosphere, degrees. */
+  apparentAltitudeDeg: number;
+};
+
 export type EclipticPosition = {
   /** Geocentric true-ecliptic-of-date longitude, degrees in [0, 360). */
   longitudeDeg: number;
@@ -62,8 +69,8 @@ export type BodyState = {
   geocentricEquatorialJ2000: EquatorialPosition;
   /** Topocentric equatorial-of-date position used for the local sky conversion. */
   observedEquatorial: EquatorialPosition;
-  /** Topocentric geometric position for sky/stat display. */
-  horizontal: HorizontalPosition;
+  /** Topocentric horizontal position with geometric and apparent altitude. */
+  horizontal: ObservedHorizontalPosition;
   /** Geocentric unit vector in the app's existing equatorial frame. */
   geocentricUnit: Vec3;
 };
