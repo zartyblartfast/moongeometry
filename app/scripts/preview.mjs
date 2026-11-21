@@ -68,7 +68,8 @@ export function parseListenerInodes(procNetTcp, port) {
   const inodes = [];
   for (const line of String(procNetTcp ?? "").split("\n")) {
     const cols = line.trim().split(/\s+/);
-    if (cols.length < 10 || cols[3] !== TCP_LISTEN || !cols[1].endsWith(wanted)) continue;
+    if (cols.length < 10 || cols[3] !== TCP_LISTEN || !cols[1].endsWith(wanted))
+      continue;
     if (/^\d+$/.test(cols[9])) inodes.push(cols[9]);
   }
   return inodes;
@@ -87,7 +88,10 @@ export function looksLikePreviewProcess(cmdline) {
   // `preview` must be the whole script name: `run preview:stop`/`preview:restart`
   // are this tooling's own wrappers, and `vite build --outDir preview-dist` is
   // not a server.
-  return /\brun\s+preview(?:\s|$)/.test(argv) || /\bvite\b\s+preview\b/.test(argv);
+  return (
+    /\brun\s+preview(?:\s|$)/.test(argv) ||
+    /\bvite(?:\.js)?\s+preview\b/.test(argv)
+  );
 }
 
 /**
@@ -109,7 +113,11 @@ export function previewOwners({ portPids, pidFilePid, cmdlineOf }) {
 
 async function waitForExit(pids, { isAlive, sleep, timeoutMs, pollMs }) {
   let remaining = pids.filter((pid) => isAlive(pid));
-  for (let waited = 0; remaining.length > 0 && waited < timeoutMs; waited += pollMs) {
+  for (
+    let waited = 0;
+    remaining.length > 0 && waited < timeoutMs;
+    waited += pollMs
+  ) {
     await sleep(pollMs);
     remaining = remaining.filter((pid) => isAlive(pid));
   }
@@ -127,9 +135,19 @@ export async function terminatePids(
 ) {
   const signalled = pids.filter((pid) => isAlive(pid));
   for (const pid of signalled) kill(pid, "SIGTERM");
-  const killed = await waitForExit(signalled, { isAlive, sleep, timeoutMs: graceMs, pollMs });
+  const killed = await waitForExit(signalled, {
+    isAlive,
+    sleep,
+    timeoutMs: graceMs,
+    pollMs,
+  });
   for (const pid of killed) kill(pid, "SIGKILL");
-  const stubborn = await waitForExit(killed, { isAlive, sleep, timeoutMs: graceMs, pollMs });
+  const stubborn = await waitForExit(killed, {
+    isAlive,
+    sleep,
+    timeoutMs: graceMs,
+    pollMs,
+  });
   return { signalled, killed, stubborn };
 }
 
@@ -141,7 +159,10 @@ export async function terminatePids(
 export function stopOutcome({ signalled, stubborn, after }) {
   const held = [...new Set([...stubborn, ...after.pids])];
   if (held.length > 0) {
-    return { ok: false, error: `port ${PREVIEW_PORT} is still held by pid(s) ${held.join(", ")}` };
+    return {
+      ok: false,
+      error: `port ${PREVIEW_PORT} is still held by pid(s) ${held.join(", ")}`,
+    };
   }
   if (after.unattributed) {
     return {
@@ -252,7 +273,8 @@ function portOwners() {
       // tcp6 is absent when the box has no IPv6.
       continue;
     }
-    for (const inode of parseListenerInodes(dump, PREVIEW_PORT)) inodes.add(inode);
+    for (const inode of parseListenerInodes(dump, PREVIEW_PORT))
+      inodes.add(inode);
   }
   const pids = inodes.size > 0 ? pidsForSocketInodes(inodes) : [];
   return { pids, unattributed: inodes.size > 0 && pids.length === 0 };
@@ -264,7 +286,11 @@ async function stop(announce = true) {
     pidFilePid: readPidFile(),
     cmdlineOf,
   });
-  const { signalled, stubborn } = await terminatePids(owners, { kill: killPid, isAlive, sleep });
+  const { signalled, stubborn } = await terminatePids(owners, {
+    kill: killPid,
+    isAlive,
+    sleep,
+  });
 
   const outcome = stopOutcome({ signalled, stubborn, after: portOwners() });
   if (!outcome.ok) {
@@ -325,19 +351,27 @@ async function restart() {
     await stop(false);
     return 1;
   }
-  console.log(`[preview] serving ${PREVIEW_URL} (pid ${child.pid}, log ${LOG_FILE})`);
+  console.log(
+    `[preview] serving ${PREVIEW_URL} (pid ${child.pid}, log ${LOG_FILE})`,
+  );
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   const args = parsePreviewArgs(process.argv.slice(2));
   if (args.error) {
     console.error(`[preview] ${args.error}`);
     process.exit(1);
   }
   if (!existsSync("/proc/self")) {
-    console.error("[preview] no /proc — this script only runs inside the sandbox");
+    console.error(
+      "[preview] no /proc — this script only runs inside the sandbox",
+    );
     process.exit(1);
   }
-  process.exitCode = args.action === "stop" ? ((await stop()) ? 0 : 1) : await restart();
+  process.exitCode =
+    args.action === "stop" ? ((await stop()) ? 0 : 1) : await restart();
 }

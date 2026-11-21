@@ -15,7 +15,8 @@ import {
 
 const execFileAsync = promisify(execFile);
 const WRAPPER = join(projectRoot(), "scripts/with-app-env.mjs");
-const PRINT_FLAG = "process.stdout.write(String(process.env.VITE_AUTH_ENABLED));";
+const PRINT_FLAG =
+  "process.stdout.write(String(process.env.VITE_AUTH_ENABLED));";
 
 function makeWorkspace(appEnvJson) {
   const root = mkdtempSync(join(tmpdir(), "app-env-"));
@@ -33,9 +34,12 @@ test("keeps VITE_-prefixed string entries", () => {
 });
 
 test("drops non-VITE keys, non-string values and malformed documents", () => {
-  assert.deepEqual(parseAppEnv('{"DATABASE_URL":"postgres://x","VITE_N":1,"VITE_OK":"y"}'), {
-    VITE_OK: "y",
-  });
+  assert.deepEqual(
+    parseAppEnv('{"DATABASE_URL":"postgres://x","VITE_N":1,"VITE_OK":"y"}'),
+    {
+      VITE_OK: "y",
+    },
+  );
   assert.deepEqual(parseAppEnv("not json"), {});
   assert.deepEqual(parseAppEnv('["VITE_AUTH_ENABLED"]'), {});
   assert.deepEqual(parseAppEnv("null"), {});
@@ -94,9 +98,35 @@ test("the wrapped command sees an explicit override, not the file value", async 
 
 test("the wrapper propagates the command's exit code", async () => {
   await assert.rejects(
-    execFileAsync(process.execPath, [WRAPPER, process.execPath, "-e", "process.exit(3)"]),
+    execFileAsync(process.execPath, [
+      WRAPPER,
+      process.execPath,
+      "-e",
+      "process.exit(3)",
+    ]),
     (err) => err.code === 3,
   );
+});
+
+test("the wrapper preserves arguments literally without shell interpretation", async () => {
+  const args = [
+    "two words",
+    'a"quoted"value',
+    "semi;colon",
+    "&",
+    "|",
+    "%PATH%",
+    "$(not-a-command)",
+    "<tag>",
+  ];
+  const { stdout } = await execFileAsync(process.execPath, [
+    WRAPPER,
+    process.execPath,
+    "-e",
+    "process.stdout.write(JSON.stringify(process.argv.slice(1)))",
+    ...args,
+  ]);
+  assert.deepEqual(JSON.parse(stdout), args);
 });
 
 test("a signal-killed command is never reported as success", async () => {
@@ -107,9 +137,12 @@ test("a signal-killed command is never reported as success", async () => {
       WRAPPER,
       process.execPath,
       "-e",
-      "process.kill(process.pid, 'SIGTERM');setTimeout(() => {}, 1000);",
+      "process.stderr.write('child-started\\n');process.kill(process.pid, 'SIGTERM');setTimeout(() => {}, 1000);",
     ]),
-    (err) => err.signal === "SIGTERM" || err.code !== 0,
+    (err) =>
+      err.stderr.includes("child-started") &&
+      (err.signal === "SIGTERM" ||
+        (typeof err.code === "number" && err.code !== 0)),
   );
 });
 
@@ -117,7 +150,13 @@ test("the CLI still runs when invoked through a symlinked path", async () => {
   // node realpaths import.meta.url but not process.argv[1], so a raw comparison
   // turns the wrapper into a no-op that exits 0 without starting anything.
   const link = join(mkdtempSync(join(tmpdir(), "app-env-link-")), "scripts");
-  symlinkSync(join(projectRoot(), "scripts"), link);
+  // Directory junctions exercise the same realpath boundary on Windows
+  // without requiring administrator privileges or Developer Mode.
+  symlinkSync(
+    join(projectRoot(), "scripts"),
+    link,
+    process.platform === "win32" ? "junction" : "dir",
+  );
   const { stdout } = await execFileAsync(process.execPath, [
     join(link, "with-app-env.mjs"),
     process.execPath,

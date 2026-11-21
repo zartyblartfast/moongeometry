@@ -21,7 +21,10 @@ test("parsePreviewArgs rejects missing, unknown and extra arguments", () => {
   assert.match(parsePreviewArgs([]).error, /usage:/);
   assert.match(parsePreviewArgs(["reload"]).error, /unknown action: reload/);
   assert.match(parsePreviewArgs(["start"]).error, /unknown action: start/);
-  assert.match(parsePreviewArgs(["restart", "--force"]).error, /unexpected argument: --force/);
+  assert.match(
+    parsePreviewArgs(["restart", "--force"]).error,
+    /unexpected argument: --force/,
+  );
 });
 
 test("parsePid reads a pidfile and rejects junk", () => {
@@ -35,8 +38,14 @@ test("parsePid reads a pidfile and rejects junk", () => {
 });
 
 test("parsePgid reads the pgrp field past a comm containing spaces", () => {
-  assert.equal(parsePgid("4321 (node) S 4300 4321 4321 0 -1 4194304 1234"), 4321);
-  assert.equal(parsePgid("4321 (npm run preview) S 4300 4200 4200 0 -1 0 0"), 4200);
+  assert.equal(
+    parsePgid("4321 (node) S 4300 4321 4321 0 -1 4194304 1234"),
+    4321,
+  );
+  assert.equal(
+    parsePgid("4321 (npm run preview) S 4300 4200 4200 0 -1 0 0"),
+    4200,
+  );
   assert.equal(parsePgid("4321 (weird ) name) S 4300 4200 4200 0"), 4200);
   assert.equal(parsePgid("garbage"), null);
   assert.equal(parsePgid(""), null);
@@ -80,22 +89,53 @@ test("parseListenerInodes picks LISTEN sockets on the wanted port only", () => {
 
 test("parseListenerInodes reads the tcp6 dump the same way", () => {
   const v6 = "00000000000000000000000000000000:1F91";
-  assert.deepEqual(parseListenerInodes(tcpRow(0, v6, "0A", 7777), 8081), ["7777"]);
+  assert.deepEqual(parseListenerInodes(tcpRow(0, v6, "0A", 7777), 8081), [
+    "7777",
+  ]);
 });
 
 // /proc/<pid>/cmdline is NUL-separated.
 const cmdline = (...argv) => argv.join("\u0000");
 
 test("looksLikePreviewProcess matches the npm wrapper and its vite child", () => {
-  const npmRun = cmdline("node", "/usr/lib/node_modules/npm/bin/npm-cli.js", "run", "preview");
+  const npmRun = cmdline(
+    "node",
+    "/usr/lib/node_modules/npm/bin/npm-cli.js",
+    "run",
+    "preview",
+  );
   assert.equal(looksLikePreviewProcess(npmRun), true);
   assert.equal(looksLikePreviewProcess(cmdline("npm", "run", "preview")), true);
   assert.equal(
-    looksLikePreviewProcess(cmdline("node", "/ws/node_modules/.bin/vite", "preview")),
+    looksLikePreviewProcess(
+      cmdline("node", "/ws/node_modules/.bin/vite", "preview"),
+    ),
     true,
   );
   // `ps -o command=` output is space-separated.
-  assert.equal(looksLikePreviewProcess("node /ws/node_modules/.bin/vite preview"), true);
+  assert.equal(
+    looksLikePreviewProcess("node /ws/node_modules/.bin/vite preview"),
+    true,
+  );
+  // npm scripts now launch Vite's JS entry directly, without a shell shim.
+  assert.equal(
+    looksLikePreviewProcess(
+      cmdline("node", "/ws/node_modules/vite/bin/vite.js", "preview"),
+    ),
+    true,
+  );
+  assert.equal(
+    looksLikePreviewProcess(
+      cmdline(
+        "node",
+        "scripts/with-app-env.mjs",
+        "node",
+        "node_modules/vite/bin/vite.js",
+        "preview",
+      ),
+    ),
+    true,
+  );
 });
 
 test("looksLikePreviewProcess spares the sibling scripts and re-used pids", () => {
@@ -107,15 +147,42 @@ test("looksLikePreviewProcess spares the sibling scripts and re-used pids", () =
     "/tmp/preview-thumbnail.png",
   );
   assert.equal(looksLikePreviewProcess(thumbnail), false);
-  assert.equal(looksLikePreviewProcess(cmdline("node", "scripts/preview.mjs", "stop")), false);
+  assert.equal(
+    looksLikePreviewProcess(cmdline("node", "scripts/preview.mjs", "stop")),
+    false,
+  );
   // This tooling's own npm wrappers, which carry no `.mjs` in their cmdline.
   const npmCli = "/usr/lib/node_modules/npm/bin/npm-cli.js";
-  assert.equal(looksLikePreviewProcess(cmdline("node", npmCli, "run", "preview:stop")), false);
-  assert.equal(looksLikePreviewProcess(cmdline("node", npmCli, "run", "preview:restart")), false);
-  assert.equal(looksLikePreviewProcess(cmdline("npm", "run", "preview:stop")), false);
+  assert.equal(
+    looksLikePreviewProcess(cmdline("node", npmCli, "run", "preview:stop")),
+    false,
+  );
+  assert.equal(
+    looksLikePreviewProcess(cmdline("node", npmCli, "run", "preview:restart")),
+    false,
+  );
+  assert.equal(
+    looksLikePreviewProcess(cmdline("npm", "run", "preview:stop")),
+    false,
+  );
   const viteBuild = cmdline("vite", "build", "--outDir", "preview-dist");
   assert.equal(looksLikePreviewProcess(viteBuild), false);
-  assert.equal(looksLikePreviewProcess(cmdline("/usr/bin/preview-tool", "--x")), false);
+  assert.equal(
+    looksLikePreviewProcess(
+      cmdline(
+        "node",
+        "/ws/node_modules/vite/bin/vite.js",
+        "build",
+        "--outDir",
+        "preview-dist",
+      ),
+    ),
+    false,
+  );
+  assert.equal(
+    looksLikePreviewProcess(cmdline("/usr/bin/preview-tool", "--x")),
+    false,
+  );
   assert.equal(looksLikePreviewProcess(cmdline("sleep", "300")), false);
   assert.equal(looksLikePreviewProcess(cmdline("node", "server.mjs")), false);
   assert.equal(looksLikePreviewProcess(""), false);
@@ -134,7 +201,8 @@ test("previewOwners adds a pidfile pid whose command line is still the preview",
   const owners = previewOwners({
     portPids: [51],
     pidFilePid: 50,
-    cmdlineOf: (pid) => (pid === 50 ? cmdline("node", "npm-cli.js", "run", "preview") : ""),
+    cmdlineOf: (pid) =>
+      pid === 50 ? cmdline("node", "npm-cli.js", "run", "preview") : "",
   });
   assert.deepEqual(owners, [51, 50]);
 });
@@ -149,12 +217,20 @@ test("previewOwners drops a stale pidfile pid re-used by another process", () =>
 });
 
 test("previewOwners drops a pidfile pid that no longer exists", () => {
-  const owners = previewOwners({ portPids: [], pidFilePid: 50, cmdlineOf: () => "" });
+  const owners = previewOwners({
+    portPids: [],
+    pidFilePid: 50,
+    cmdlineOf: () => "",
+  });
   assert.deepEqual(owners, []);
 });
 
 test("previewOwners on a free port with no pidfile signals nothing", () => {
-  const owners = previewOwners({ portPids: [], pidFilePid: null, cmdlineOf: () => "" });
+  const owners = previewOwners({
+    portPids: [],
+    pidFilePid: null,
+    cmdlineOf: () => "",
+  });
   assert.deepEqual(owners, []);
 });
 
@@ -185,7 +261,11 @@ test("stopOutcome reports a verified free port", () => {
   assert.equal(stopped.ok, true);
   assert.match(stopped.message, /stopped pid\(s\) 50 — port 8081 is free/);
 
-  const idle = stopOutcome({ signalled: [], stubborn: [], after: { pids: [] } });
+  const idle = stopOutcome({
+    signalled: [],
+    stubborn: [],
+    after: { pids: [] },
+  });
   assert.equal(idle.ok, true);
   assert.match(idle.message, /nothing was listening on 8081/);
 });
@@ -197,7 +277,10 @@ test("stopOutcome fails on a listener whose owner cannot be attributed", () => {
     after: { pids: [], unattributed: true },
   });
   assert.equal(outcome.ok, false);
-  assert.match(outcome.error, /port 8081 is held by a process this script cannot see/);
+  assert.match(
+    outcome.error,
+    /port 8081 is held by a process this script cannot see/,
+  );
 });
 
 function fakeProcesses({ pids, ignoresTerm = [] }) {

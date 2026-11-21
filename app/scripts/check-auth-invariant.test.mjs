@@ -34,53 +34,77 @@ test("the flag predicate matches src/lib/auth", () => {
 
 test("reads the value a live dev server resolved", async () => {
   assert.equal(
-    await probeDevAuthEnabled("http://127.0.0.1:8080", appEnvFetch({ VITE_AUTH_ENABLED: "false" })),
+    await probeDevAuthEnabled(
+      "http://127.0.0.1:8080",
+      appEnvFetch({ VITE_AUTH_ENABLED: "false" }),
+    ),
     false,
   );
 });
 
 test("a server started without the flag reads as sign-in on", async () => {
-  assert.equal(await probeDevAuthEnabled("http://127.0.0.1:8080", appEnvFetch({})), true);
+  assert.equal(
+    await probeDevAuthEnabled("http://127.0.0.1:8080", appEnvFetch({})),
+    true,
+  );
 });
 
 test("agreement passes", () => {
   assert.equal(
-    compareAuthInvariant({ devAuthEnabled: false, buildAuthEnabled: false }).status,
+    compareAuthInvariant({ devAuthEnabled: false, buildAuthEnabled: false })
+      .status,
     "ok",
   );
 });
 
 test("divergence fails in either direction", () => {
-  const devOn = compareAuthInvariant({ devAuthEnabled: true, buildAuthEnabled: false });
+  const devOn = compareAuthInvariant({
+    devAuthEnabled: true,
+    buildAuthEnabled: false,
+  });
   assert.equal(devOn.status, "diverged");
-  assert.match(devOn.message, /dev server has sign-in on but the next build has it off/);
+  assert.match(
+    devOn.message,
+    /dev server has sign-in on but the next build has it off/,
+  );
   assert.equal(
-    compareAuthInvariant({ devAuthEnabled: false, buildAuthEnabled: true }).status,
+    compareAuthInvariant({ devAuthEnabled: false, buildAuthEnabled: true })
+      .status,
     "diverged",
   );
 });
 
 test("an unobservable dev server is indeterminate, not agreement", () => {
   assert.equal(
-    compareAuthInvariant({ devAuthEnabled: null, buildAuthEnabled: false }).status,
+    compareAuthInvariant({ devAuthEnabled: null, buildAuthEnabled: false })
+      .status,
     "indeterminate",
   );
 });
 
 test("a dev server that cannot be reached probes as null", async () => {
   const unreachable = () => Promise.reject(new Error("ECONNREFUSED"));
-  assert.equal(await probeDevAuthEnabled("http://127.0.0.1:1", unreachable), null);
+  assert.equal(
+    await probeDevAuthEnabled("http://127.0.0.1:1", unreachable),
+    null,
+  );
 });
 
 test("a server without the endpoint probes as null, not as agreement", async () => {
   const notFound = async () => ({ ok: false, text: async () => "Not Found" });
-  assert.equal(await probeDevAuthEnabled("http://127.0.0.1:8081", notFound), null);
+  assert.equal(
+    await probeDevAuthEnabled("http://127.0.0.1:8081", notFound),
+    null,
+  );
   const html = async () => ({ ok: true, text: async () => "<!doctype html>" });
   assert.equal(await probeDevAuthEnabled("http://127.0.0.1:8081", html), null);
 });
 
 test("only a divergence warns the smoke verdict", () => {
-  const diverged = compareAuthInvariant({ devAuthEnabled: true, buildAuthEnabled: false });
+  const diverged = compareAuthInvariant({
+    devAuthEnabled: true,
+    buildAuthEnabled: false,
+  });
   assert.deepEqual(authInvariantWarnings(diverged), [diverged.message]);
   for (const result of [
     compareAuthInvariant({ devAuthEnabled: false, buildAuthEnabled: false }),
@@ -92,19 +116,33 @@ test("only a divergence warns the smoke verdict", () => {
 
 test("the build side resolves the template's shipped app-env", () => {
   assert.equal(buildAuthEnabled(projectRoot(), {}), false);
-  assert.equal(buildAuthEnabled(projectRoot(), { VITE_AUTH_ENABLED: "true" }), true);
+  assert.equal(
+    buildAuthEnabled(projectRoot(), { VITE_AUTH_ENABLED: "true" }),
+    true,
+  );
 });
 
 test("the CLI reports rather than silently passing when run via a symlink", async () => {
   // A check whose exit code is the whole signal must never no-op to 0 because
   // process.argv[1] came in through a symlinked path.
-  const link = join(mkdtempSync(join(tmpdir(), "auth-invariant-link-")), "scripts");
-  symlinkSync(join(projectRoot(), "scripts"), link);
+  const link = join(
+    mkdtempSync(join(tmpdir(), "auth-invariant-link-")),
+    "scripts",
+  );
+  // A junction gives Windows the same alias/realpath test without elevated privileges.
+  symlinkSync(
+    join(projectRoot(), "scripts"),
+    link,
+    process.platform === "win32" ? "junction" : "dir",
+  );
   const error = await promisify(execFile)(process.execPath, [
     join(link, "check-auth-invariant.mjs"),
     "--dev-url",
     "http://127.0.0.1:1",
   ]).catch((err) => err);
   assert.equal(error.code, 2);
-  assert.match(error.stderr, /could not read the dev server's resolved VITE_AUTH_ENABLED/);
+  assert.match(
+    error.stderr,
+    /could not read the dev server's resolved VITE_AUTH_ENABLED/,
+  );
 });

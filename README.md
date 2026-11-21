@@ -146,9 +146,15 @@ From `app/`:
 ```sh
 npm run dev        # local server
 npm run typecheck  # TypeScript check
-npm test           # scaffold tests plus astronomy tests
+npm test           # all discovered tooling and application unit tests
 npm run build      # production build
 ```
+
+`npm test` discovers `*.test.mjs` and `*.test.ts` files recursively under
+`app/scripts/` and `app/src/`, runs each file once, and propagates test failures.
+Discovery does not rely on shell glob expansion, and an empty suite is an error.
+New tests using these filenames are included automatically. Browser checks such
+as `npm run test:sliders -- <base-url>` remain separate and require a running app.
 
 ---
 
