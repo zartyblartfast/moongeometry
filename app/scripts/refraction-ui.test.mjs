@@ -159,17 +159,26 @@ async function open(t, { device, mutation } = {}) {
 async function value(root, label) {
   return root
     .getByText(label, { exact: true })
-    .locator("..")
-    .locator("dd")
+    .locator("xpath=ancestor::div[dd][1]/dd")
     .innerText();
 }
 
 async function assertMain(page) {
   const stats = page.locator("dl").first();
   assert.equal(
-    await value(stats, "Altitude"),
+    await value(stats, "Apparent altitude"),
     fixture.apparent,
     "main apparent altitude",
+  );
+  const altitudeTerm = stats
+    .locator("dt")
+    .filter({ hasText: "Apparent altitude" });
+  assert.equal(
+    await altitudeTerm
+      .getByText("Standard atmosphere", { exact: true })
+      .count(),
+    1,
+    "main altitude identifies its standard-atmosphere model",
   );
   assert.equal(
     await value(stats, "Top of path"),
@@ -178,6 +187,20 @@ async function assertMain(page) {
   );
   assert.match(await value(stats, "Rise"), /^13:34/, "apparent-centre rise");
   assert.match(await value(stats, "Set"), /^00:41/, "apparent-centre set");
+  const riseSetNote = "Rise/set · Moon centre, standard refraction";
+  assert.equal(
+    await stats.getByText(riseSetNote, { exact: true }).count(),
+    0,
+    "rise/set note is not an invalid direct child of the description list",
+  );
+  assert.equal(
+    await stats
+      .locator("xpath=following-sibling::*[1]")
+      .getByText(riseSetNote, { exact: true })
+      .count(),
+    1,
+    "rise/set convention remains immediately beside the values",
+  );
 }
 
 async function calculation(page) {
@@ -468,7 +491,7 @@ test(
       () => new URLSearchParams(location.search).get("time") === "00:49",
     );
     assert.equal(
-      await value(page.locator("dl").first(), "Altitude"),
+      await value(page.locator("dl").first(), "Apparent altitude"),
       "Below horizon",
     );
     const chart = page.getByRole("img", {

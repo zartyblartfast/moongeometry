@@ -668,7 +668,17 @@ export function MoonApp() {
                     : "; small tick = top of Moon path."}
                 </p>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <Stat k="Altitude" v={altitudeLabel} />
+                  <Stat
+                    k={
+                      <>
+                        <span>Apparent altitude</span>
+                        <span className="rounded-full border border-gold/30 bg-gold/10 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
+                          Standard atmosphere
+                        </span>
+                      </>
+                    }
+                    v={altitudeLabel}
+                  />
                   <Stat k="Azimuth" v={azimuthLabel} />
                   <Stat k="Declination" v={deg1(sky.decDeg)} />
                   <Stat
@@ -678,6 +688,9 @@ export function MoonApp() {
                   <Stat k="Rise" v={riseValue} />
                   <Stat k="Set" v={setValue} />
                 </dl>
+                <p className="text-xs text-muted">
+                  Rise/set · Moon centre, standard refraction
+                </p>
                 <p className="text-sm text-fg">
                   Geometric h at meridian = 90° − |{lat.toFixed(1)}° −{" "}
                   {deg1(sky.decDeg)}|; the displayed path adds refraction.
@@ -1252,10 +1265,10 @@ function SolarUtcValue({ instant, lon }: { instant: number; lon: number }) {
   );
 }
 
-function Stat({ k, v }: { k: string; v: ReactNode }) {
+function Stat({ k, v }: { k: ReactNode; v: ReactNode }) {
   return (
     <div>
-      <dt className="text-muted">{k}</dt>
+      <dt className="flex flex-wrap items-center gap-1.5 text-muted">{k}</dt>
       <dd className="text-fg">{v}</dd>
     </div>
   );
