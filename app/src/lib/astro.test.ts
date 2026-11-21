@@ -212,19 +212,13 @@ test("provider snapshots keep geometric altitude and add standard apparent altit
   }
 });
 
-test("local sky consumers use apparent altitude while Explain preserves geometric altitude", () => {
+test("current Moon Path copy labels geometric and apparent conventions", () => {
   const moonApp = readFileSync(
     new URL("../components/moon-app.tsx", import.meta.url),
     "utf8",
   );
-  const skyChart = readFileSync(
-    new URL("../components/sky-chart.tsx", import.meta.url),
-    "utf8",
-  );
-  const orientation = readFileSync(
-    new URL("../components/orientation-control.tsx", import.meta.url),
-    "utf8",
-  );
+  // Dynamic consumers are covered by refraction-ui.test.mjs. Keep this only
+  // as a backstop for convention wording in documentation/static copy.
   const coordinateDiagrams = readFileSync(
     new URL("../components/local-sky-coordinate-diagrams.tsx", import.meta.url),
     "utf8",
@@ -238,12 +232,9 @@ test("local sky consumers use apparent altitude while Explain preserves geometri
     "utf8",
   );
 
-  assert.match(moonApp, /const altDeg = sky\.moon\.horizontal\.apparentAltitudeDeg/);
   assert.match(moonApp, /Geometric altitude/);
   assert.match(moonApp, /Atmospheric refraction/);
   assert.match(moonApp, /standard sea-level\s+atmosphere/);
-  assert.match(skyChart, /snapshot\.moon\.horizontal\.apparentAltitudeDeg/);
-  assert.match(orientation, /snapshot\.moon\.horizontal\.apparentAltitudeDeg/);
   assert.match(coordinateDiagrams, /standard-atmosphere apparent altitude/);
   assert.match(coordinateDiagrams, /geometric altitude = 90°/);
   assert.match(guide, /geometric altitude = 90°/);

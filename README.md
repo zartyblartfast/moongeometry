@@ -146,15 +146,22 @@ From `app/`:
 ```sh
 npm run dev        # local server
 npm run typecheck  # TypeScript check
-npm test           # all discovered tooling and application unit tests
+npm test           # all discovered tooling and application tests
+npm run test:refraction # rendered refraction, orientation and real PNG regression
 npm run build      # production build
 ```
 
 `npm test` discovers `*.test.mjs` and `*.test.ts` files recursively under
 `app/scripts/` and `app/src/`, runs each file once, and propagates test failures.
 Discovery does not rely on shell glob expansion, and an empty suite is an error.
-New tests using these filenames are included automatically. Browser checks such
-as `npm run test:sliders -- <base-url>` remain separate and require a running app.
+New tests using these filenames are included automatically. The refraction
+browser regression is included in `npm test` and can also be run alone with
+`npm run test:refraction`. It starts and closes its own loopback server on an
+available port; it does not use or stop an existing dev server. Install its
+Chromium runtime once with `npx playwright install chromium` after installing
+npm dependencies. A missing browser is a test failure, not a silent skip.
+Other browser checks such as `npm run test:sliders -- <base-url>` remain separate
+and require a running app.
 
 ---
 

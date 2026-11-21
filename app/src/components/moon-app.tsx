@@ -442,11 +442,28 @@ export function MoonApp() {
               Angles true · distances fiction
             </p>
             <h1 className="font-display text-3xl text-fg">Moon Geometry</h1>
-            <nav aria-label="Workspaces" className="mt-1 flex gap-4 text-sm text-muted [&_[aria-current=page]]:border-b-2 [&_[aria-current=page]]:border-gold [&_[aria-current=page]]:text-fg">
-              <a href="/" aria-current="page">Moon Path</a>
-              <a href="/lunar-parallax/" onClick={() => {
-                try { sessionStorage.setItem("moon-path-return", urlForState(lat, lon, instant)); } catch { /* Storage is optional. */ }
-              }}>Lunar Parallax</a>
+            <nav
+              aria-label="Workspaces"
+              className="mt-1 flex gap-4 text-sm text-muted [&_[aria-current=page]]:border-b-2 [&_[aria-current=page]]:border-gold [&_[aria-current=page]]:text-fg"
+            >
+              <a href="/" aria-current="page">
+                Moon Path
+              </a>
+              <a
+                href="/lunar-parallax/"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem(
+                      "moon-path-return",
+                      urlForState(lat, lon, instant),
+                    );
+                  } catch {
+                    /* Storage is optional. */
+                  }
+                }}
+              >
+                Lunar Parallax
+              </a>
             </nav>
           </div>
           <div className="max-w-2xl text-sm leading-5 text-muted lg:text-right">
@@ -782,11 +799,10 @@ export function MoonApp() {
             <p className="text-xs text-muted sm:col-span-2 lg:col-span-9">
               Apparent altitude and centre rise/set use a standard atmosphere.
               Terrain, weather and the Moon’s apparent edge are not included.
-              Distances remain schematic. Drag the model to turn it.
-              In Edge-on view, drag the north-axis tip to level the equator or
-              ecliptic. The Earth spin slider sets the pace, from one night up
-              to a whole year. Slide the Moon holds the clock and lets
-              declination drift.
+              Distances remain schematic. Drag the model to turn it. In Edge-on
+              view, drag the north-axis tip to level the equator or ecliptic.
+              The Earth spin slider sets the pace, from one night up to a whole
+              year. Slide the Moon holds the clock and lets declination drift.
             </p>
           </div>
         </section>
@@ -867,8 +883,13 @@ function ExplainPanel({
   set: string;
 }) {
   const instant = useMoon((s) => s.instant);
-  const simulated = useMoon((s) => s.orbit !== s.instant || s.playing === "slide");
+  const simulated = useMoon(
+    (s) => s.orbit !== s.instant || s.playing === "slide",
+  );
   const refractionLabel = `${(refractionDeg * 60).toFixed(1)}′`;
+  const geometricDetail = `${geometricAltitudeDeg < 0 ? "−" : ""}${Math.abs(geometricAltitudeDeg).toFixed(3)}°`;
+  const refractionDetail = `${refractionDeg.toFixed(3)}°`;
+  const apparentDetail = `${altitudeDeg < 0 ? "−" : ""}${Math.abs(altitudeDeg).toFixed(3)}°`;
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/55 p-3"
@@ -963,18 +984,22 @@ function ExplainPanel({
 
           {tab === "calculation" ? (
             <div className="space-y-4">
-              <p className="text-base text-fg">
-                Inputs for this sky
+              <p className="text-base text-fg">Inputs for this sky</p>
+              <ValueGrid
+                rows={[
+                  ["Latitude / longitude", `${lat}°, ${lon}°`],
+                  ["Mean solar time", dateLabel],
+                  ["Observer clock (UTC)", new Date(instant).toISOString()],
+                ]}
+              />
+              <h3 className="text-base text-fg">
+                Model: from orbit to your sky
+              </h3>
+              <p>
+                Astronomy Engine calculates the Moon’s direction from Earth’s
+                centre, then shifts the viewpoint to your location at sea level.
+                Earth’s rotation sets the direction of your local meridian.
               </p>
-              <ValueGrid rows={[
-                ["Latitude / longitude", `${lat}°, ${lon}°`],
-                ["Mean solar time", dateLabel],
-                ["Observer clock (UTC)", new Date(instant).toISOString()],
-              ]} />
-              <h3 className="text-base text-fg">Model: from orbit to your sky</h3>
-              <p>Astronomy Engine calculates the Moon’s direction from Earth’s centre,
-                then shifts the viewpoint to your location at sea level. Earth’s
-                rotation sets the direction of your local meridian.</p>
               <ValueGrid
                 rows={[
                   ["Geocentric ecliptic longitude", deg1(moonEclLonDeg)],
@@ -983,7 +1008,9 @@ function ExplainPanel({
                   ["Hour angle", deg1(hourAngleDeg)],
                 ]}
               />
-              <h3 className="text-base text-fg">Calculated results · Moon centre</h3>
+              <h3 className="text-base text-fg">
+                Calculated results · Moon centre
+              </h3>
               <ValueGrid
                 rows={[
                   ["Geometric altitude", deg1(geometricAltitudeDeg)],
@@ -996,16 +1023,21 @@ function ExplainPanel({
                 ]}
               />
               <div className="rounded-lg bg-bg/60 p-3 font-mono text-xs text-fg">
-                <div>h = asin( sin φ sin δ + cos φ cos δ cos H )</div>
+                <div>h geometric = asin( sin φ sin δ + cos φ cos δ cos H )</div>
                 <div>φ = observer latitude = {deg1(lat)}</div>
                 <div>δ = Moon declination = {deg1(declinationDeg)}</div>
                 <div>H = local hour angle = {deg1(hourAngleDeg)}</div>
-                <div>h geometric = {deg1(geometricAltitudeDeg)}</div>
+                <div>h geometric ≈ {geometricDetail}</div>
+                <div>h apparent = h geometric + R(h geometric)</div>
                 <div>
-                  h apparent = h geometric + {refractionLabel} ={" "}
-                  {deg1(altitudeDeg)}
+                  h apparent ≈ {geometricDetail} + {refractionDetail} ≈{" "}
+                  {apparentDetail}
                 </div>
               </div>
+              <p className="text-xs">
+                Worked values are rounded. The addition uses degrees; the
+                refraction above is in arcminutes (60′ = 1°).
+              </p>
               <p>
                 The ephemeris supplies the Moon's topocentric equatorial-of-date
                 declination and hour angle after observer parallax is applied.

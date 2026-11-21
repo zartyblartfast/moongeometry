@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test:sliders": "node scripts/check-slider-scroll.mjs",
     "test:orbital-lines": "node --experimental-strip-types --test src/lib/orbital-lines.test.ts",
+    "test:refraction": "node --test scripts/refraction-ui.test.mjs",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node scripts/run-tests.mjs",
     "lint": "eslint .",
