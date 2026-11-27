@@ -185,8 +185,16 @@ async function assertMain(page) {
     fixture.top,
     "apparent top of path",
   );
-  assert.match(await value(stats, "Rise"), /^13:34/, "apparent-centre rise");
-  assert.match(await value(stats, "Set"), /^00:41/, "apparent-centre set");
+  assert.match(
+    await value(stats, "Rise · mean solar"),
+    /^13:34/,
+    "apparent-centre rise",
+  );
+  assert.match(
+    await value(stats, "Set · mean solar"),
+    /^00:41/,
+    "apparent-centre set",
+  );
   const riseSetNote = "Rise/set · Moon centre, standard refraction";
   assert.equal(
     await stats.getByText(riseSetNote, { exact: true }).count(),

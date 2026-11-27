@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test, { after, before } from "node:test";
 import { chromium } from "playwright";
+import { PNG } from "pngjs";
 import { createServer } from "vite";
 import { projectRoot } from "./with-app-env.mjs";
 
@@ -137,6 +138,51 @@ async function open(
       .getByRole("button", { name: "Change place or time", exact: true })
       .click();
   return { page, errors, fault };
+}
+
+function localSky(page) {
+  return page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Local sky path", exact: true }),
+  });
+}
+
+async function slideAndPause(page) {
+  const sky = localSky(page);
+  const declination = sky
+    .locator("dt")
+    .filter({ hasText: /^Declination$/ })
+    .locator("..")
+    .locator("dd");
+  const before = await declination.innerText();
+  const slide = page.getByRole("button", {
+    name: "Slide the Moon",
+    exact: true,
+  });
+  await slide.click();
+  assert.equal(await slide.getAttribute("aria-pressed"), "true");
+  assert.equal(
+    await sky.getByText("Simulated sky.", { exact: true }).isVisible(),
+    true,
+    "active Slide discloses the simulation",
+  );
+  await page.waitForFunction((before) => {
+    const term = [...document.querySelectorAll("dt")].find(
+      (node) => node.textContent === "Declination",
+    );
+    return term?.nextElementSibling?.textContent !== before;
+  }, before);
+  await slide.click();
+  assert.equal(
+    await slide.getAttribute("aria-pressed"),
+    "false",
+    "Slide playback is paused",
+  );
+  assert.notEqual(
+    await declination.innerText(),
+    before,
+    "real animation changed the displayed orbital result",
+  );
+  return sky;
 }
 
 async function clearHour(page) {
@@ -721,6 +767,411 @@ for (const scenario of [
     },
   );
 }
+
+test(
+  "primary simulation disclosure persists after real Slide playback is paused",
+  { timeout: 60_000 },
+  async (t) => {
+    const { page } = await open(t);
+    if (artifacts)
+      await page.screenshot({
+        path: join(artifacts, "simulation-before-1280.png"),
+        fullPage: true,
+      });
+    const sky = await slideAndPause(page);
+    const notice = sky.locator("p").filter({ hasText: /^Simulated sky/ });
+    assert.equal(
+      await notice.count(),
+      1,
+      "paused independent orbital state needs a primary disclosure",
+    );
+    assert.equal(await notice.isVisible(), true);
+    assert.match(
+      await notice.innerText(),
+      /orbital position.*separately.*observer’s clock/,
+    );
+    assert.match(
+      await notice.innerText(),
+      /Set the date and time again before comparing/,
+    );
+    assert.equal(
+      await notice.evaluate((node) => node.closest("dl")),
+      null,
+      "notice stays outside the definition list",
+    );
+  },
+);
+
+async function offsetOrbit(page) {
+  // Supplementary fixture uses the real module; no test globals in shipped code.
+  await page.evaluate(async () => {
+    const { useMoon } = await import("/src/lib/store.ts");
+    useMoon.setState({
+      orbit: useMoon.getState().instant + 3_600_000,
+      playing: "none",
+    });
+  });
+  await localSky(page).getByText("Simulated sky.", { exact: true }).waitFor();
+}
+
+test(
+  "simulation disclosure follows orbital offset through location edits and Spin playback",
+  { timeout: 60_000 },
+  async (t) => {
+    const { page } = await open(t);
+    const notice = localSky(page).getByText("Simulated sky.", { exact: true });
+    assert.equal(
+      await notice.count(),
+      0,
+      "shared observational visit is quiet",
+    );
+    await offsetOrbit(page);
+    for (const [name, value] of [
+      [/^Latitude /, "40.7"],
+      [/^Longitude /, "-74"],
+    ]) {
+      await page.getByRole("slider", { name }).fill(value);
+      assert.equal(
+        await notice.isVisible(),
+        true,
+        "location edits do not synchronize the clocks",
+      );
+    }
+    const spin = page.getByRole("button", { name: "Spin Earth", exact: true });
+    await spin.click();
+    assert.equal(await spin.getAttribute("aria-pressed"), "true");
+    assert.equal(await notice.isVisible(), true);
+    await spin.click();
+    assert.equal(
+      await notice.isVisible(),
+      true,
+      "Spin pause also preserves the offset disclosure",
+    );
+    await page.reload();
+    await page.locator('[title="IANA zone: America/New_York"]').waitFor();
+    assert.equal(
+      await notice.count(),
+      0,
+      "reloaded shared URL restores an observational clock, not the independent orbit",
+    );
+  },
+);
+
+for (const action of ["date", "time", "current time", "preset", "scrubber"]) {
+  test(
+    `${action} resynchronizes the clocks and clears the simulation disclosure`,
+    { timeout: 60_000 },
+    async (t) => {
+      const { page } = await open(t);
+      await offsetOrbit(page);
+      if (action === "date")
+        await page.getByLabel("Date", { exact: true }).fill("2026-12-22");
+      if (action === "time")
+        await page.getByLabel("Mean solar time", { exact: true }).fill("22:00");
+      if (action === "current time")
+        await page
+          .getByRole("button", { name: "Use current time", exact: true })
+          .click();
+      if (action === "preset")
+        await page
+          .getByRole("button", { name: "Summer full Moon", exact: true })
+          .click();
+      if (action === "scrubber")
+        await page
+          .getByRole("slider", {
+            name: "Scrub mean solar time through the selected day",
+            exact: true,
+          })
+          .fill("800");
+      await localSky(page)
+        .getByText("Simulated sky.", { exact: true })
+        .waitFor({ state: "detached" });
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Slide the Moon", exact: true })
+          .getAttribute("aria-pressed"),
+        "false",
+      );
+      assert.deepEqual(
+        await page.evaluate(async () => {
+          const { useMoon } = await import("/src/lib/store.ts");
+          const { instant, orbit, playing } = useMoon.getState();
+          return { synchronized: instant === orbit, playing };
+        }),
+        { synchronized: true, playing: "none" },
+      );
+    },
+  );
+}
+
+test(
+  "ordinary visit has no idle simulation disclosure",
+  { timeout: 60_000 },
+  async (t) => {
+    const { page } = await open(t);
+    await page.goto(base + "/");
+    await page.locator('[title="IANA zone: Europe/London"]').waitFor();
+    assert.equal(
+      await localSky(page).getByText("Simulated sky.", { exact: true }).count(),
+      0,
+    );
+  },
+);
+
+test(
+  "New York rise/set names the mean-solar first clock in primary results and Explain",
+  { timeout: 60_000 },
+  async (t) => {
+    const { page } = await open(t);
+    await page.goto(base + "/?lat=40.7&lon=-74&date=2026-11-27&time=20:00");
+    await page.locator('[title="IANA zone: America/New_York"]').waitFor();
+    const sky = localSky(page);
+    const rise = sky.locator("dt").filter({ hasText: /^Rise/ }).locator("..");
+    const set = sky.locator("dt").filter({ hasText: /^Set/ }).locator("..");
+    assert.equal(
+      await rise.locator("dd").innerText(),
+      "19:49· 00:45 UTC, 28 Nov",
+    );
+    assert.equal(await set.locator("dd").innerText(), "10:40· 15:36 UTC");
+    assert.equal(await rise.locator("dt").innerText(), "Rise · mean solar");
+    assert.equal(await set.locator("dt").innerText(), "Set · mean solar");
+    assert.match(await sky.innerText(), /Moon centre, standard refraction/);
+    await page.getByRole("button", { name: "Explain", exact: true }).click();
+    const dialog = page.getByRole("dialog", {
+      name: "Explain this moment",
+      exact: true,
+    });
+    const events = dialog
+      .locator("dt")
+      .filter({ hasText: /^Rise \/ set/ })
+      .locator("..");
+    assert.equal(
+      await events.locator("dt").innerText(),
+      "Rise / set · mean solar, then UTC",
+    );
+    assert.equal(
+      await events.locator("dd").innerText(),
+      "19:49 · 00:45 UTC, 28 Nov / 10:40 · 15:36 UTC",
+    );
+  },
+);
+
+test(
+  "Greenwich event clocks retain equal values without a UTC date suffix",
+  { timeout: 60_000 },
+  async (t) => {
+    const { page } = await open(t);
+    await page.goto(base + "/?lat=51.5&lon=0&date=2026-12-21&time=21:00");
+    await page.locator('[title="IANA zone: Europe/London"]').waitFor();
+    const sky = localSky(page);
+    for (const [term, expected] of [
+      ["Rise · mean solar", "13:23· 13:23 UTC"],
+      ["Set · mean solar", "05:58· 05:58 UTC"],
+    ]) {
+      assert.equal(
+        await sky
+          .locator("dt")
+          .filter({ hasText: term })
+          .locator("..")
+          .locator("dd")
+          .innerText(),
+        expected,
+      );
+    }
+    await page.getByRole("button", { name: "Explain", exact: true }).click();
+    const events = page
+      .getByRole("dialog")
+      .locator("dt")
+      .filter({ hasText: "Rise / set · mean solar, then UTC" })
+      .locator("..");
+    assert.equal(
+      await events.locator("dd").innerText(),
+      "13:23 · 13:23 UTC / 05:58 · 05:58 UTC",
+    );
+  },
+);
+
+test(
+  "polar rise/set fallback text survives explicit clock labeling",
+  { timeout: 60_000 },
+  async (t) => {
+    const { page } = await open(t);
+    for (const [latitude, expected] of [
+      ["90", ["Up all day", "Up all day"]],
+      ["-90", ["Does not rise", "Does not set"]],
+    ]) {
+      await page.getByRole("slider", { name: /^Latitude / }).fill(latitude);
+      const sky = localSky(page);
+      assert.deepEqual(
+        await sky
+          .locator("dt")
+          .filter({ hasText: /^(Rise|Set) · mean solar$/ })
+          .locator("..")
+          .locator("dd")
+          .allTextContents(),
+        expected,
+      );
+    }
+  },
+);
+
+async function skyLayout(page) {
+  return localSky(page).evaluate((section) => {
+    const svg = [...section.querySelectorAll("svg")].find(
+      (node) =>
+        node.querySelector("[data-sky-horizon]") &&
+        node.getBoundingClientRect().height > 10,
+    );
+    const stage = svg.parentElement.getBoundingClientRect();
+    const notice = [...section.querySelectorAll("p")].find((node) =>
+      node.textContent.startsWith("Simulated sky."),
+    );
+    const label = [...section.querySelectorAll("dt")].find((node) =>
+      node.textContent.startsWith("Rise"),
+    );
+    const text = notice ? getComputedStyle(notice) : null;
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      stage: { width: stage.width, height: stage.height },
+      skyHeight: section.getBoundingClientRect().height,
+      overflow: document.documentElement.scrollWidth > innerWidth,
+      eventLabel: {
+        height: label.getBoundingClientRect().height,
+        lineHeight: getComputedStyle(label).lineHeight,
+      },
+      notice: notice
+        ? {
+            width: notice.getBoundingClientRect().width,
+            height: notice.getBoundingClientRect().height,
+            fontSize: text.fontSize,
+            lineHeight: text.lineHeight,
+            color: text.color,
+            background: getComputedStyle(section).backgroundColor,
+            labelColor: getComputedStyle(notice.firstElementChild).color,
+          }
+        : null,
+    };
+  });
+}
+
+for (const scenario of [
+  {
+    name: "clarity-1280",
+    viewport: { width: 1280, height: 800 },
+    stageHeight: 256,
+  },
+  {
+    name: "clarity-1440",
+    viewport: { width: 1440, height: 900 },
+    stageHeight: 256,
+  },
+  {
+    name: "clarity-phone",
+    viewport: { width: 390, height: 844 },
+    touch: true,
+    stageHeight: 208,
+  },
+  {
+    name: "clarity-landscape",
+    viewport: { width: 844, height: 390 },
+    touch: true,
+    stageHeight: 208,
+  },
+]) {
+  test(
+    `${scenario.name}: compact labels and paused disclosure preserve the native sky stage`,
+    { timeout: 60_000 },
+    async (t) => {
+      const { page } = await open(t, scenario);
+      await page.evaluate(() => document.fonts.ready);
+      const normal = await skyLayout(page);
+      assert.equal(normal.stage.height, scenario.stageHeight);
+      assert.equal(normal.overflow, false);
+      assert.equal(normal.notice, null);
+      assert.equal(
+        normal.eventLabel.height,
+        Number.parseFloat(normal.eventLabel.lineHeight),
+        "event label stays on one line",
+      );
+      await localSky(page).scrollIntoViewIfNeeded();
+      if (artifacts)
+        await page.screenshot({
+          path: join(artifacts, `${scenario.name}-normal.png`),
+          fullPage: true,
+        });
+      await slideAndPause(page);
+      const paused = await skyLayout(page);
+      assert.deepEqual(
+        paused.stage,
+        normal.stage,
+        "notice never resizes the plot",
+      );
+      assert.equal(paused.overflow, false);
+      assert.equal(paused.notice.fontSize, "12px");
+      assert.equal(paused.notice.lineHeight, "16px");
+      assert.equal(
+        paused.skyHeight - normal.skyHeight,
+        paused.notice.height + 8,
+        "only conditional copy plus existing gap grows the panel",
+      );
+      await localSky(page).scrollIntoViewIfNeeded();
+      if (artifacts) {
+        await page.screenshot({
+          path: join(artifacts, `${scenario.name}-paused.png`),
+          fullPage: true,
+        });
+        await writeFile(
+          join(artifacts, `${scenario.name}-layout.json`),
+          JSON.stringify({ normal, paused }, null, 2),
+        );
+      }
+      await page.getByRole("button", { name: "Explain", exact: true }).click();
+      const dialog = page.getByRole("dialog", {
+        name: "Explain this moment",
+        exact: true,
+      });
+      await dialog.waitFor();
+      assert.match(await dialog.innerText(), /Slide the Moon simulation/);
+      assert.match(
+        await dialog.innerText(),
+        /Rise \/ set · mean solar, then UTC/,
+      );
+      if (artifacts)
+        await page.screenshot({
+          path: join(artifacts, `${scenario.name}-explain.png`),
+        });
+    },
+  );
+}
+
+test(
+  "actual Share PNG remains a decoded native infographic after the clarity patch",
+  { timeout: 60_000 },
+  async (t) => {
+    const { page } = await open(t);
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    const dialog = page.getByRole("dialog", {
+      name: "Moon Geometry infographic",
+      exact: true,
+    });
+    const image = dialog.getByAltText(
+      "Preview of the Moon Geometry infographic",
+      { exact: true },
+    );
+    await image.waitFor();
+    await image.evaluate((img) => img.decode());
+    const downloadPromise = page.waitForEvent("download");
+    await dialog
+      .getByRole("button", { name: "Download PNG", exact: true })
+      .click();
+    const download = await downloadPromise;
+    const png = PNG.sync.read(await readFile(await download.path()));
+    assert.equal(png.width, 1600);
+    assert.equal(png.height, 900);
+    assert.equal(await download.failure(), null);
+    if (artifacts) await download.saveAs(join(artifacts, "clarity-share.png"));
+  },
+);
 
 test(
   "render errors offer a working reload that preserves the shared observation",

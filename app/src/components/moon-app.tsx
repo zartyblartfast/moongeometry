@@ -664,6 +664,16 @@ export function MoonApp() {
                   }
                 />
                 {status}
+                {orbit !== instant || playing === "slide" ? (
+                  <p className="text-xs text-muted">
+                    <span className="font-semibold text-gold">
+                      Simulated sky.
+                    </span>{" "}
+                    The orbital position moves separately from the observer’s
+                    clock. Set the date and time again before comparing this sky
+                    with an observation.
+                  </p>
+                ) : null}
                 <p className="text-sm text-fg lg:hidden">
                   {altDeg < 0
                     ? "The Moon is below the horizon."
@@ -703,8 +713,8 @@ export function MoonApp() {
                     k="Top of path"
                     v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)}
                   />
-                  <Stat k="Rise" v={riseValue} />
-                  <Stat k="Set" v={setValue} />
+                  <Stat k="Rise · mean solar" v={riseValue} />
+                  <Stat k="Set · mean solar" v={setValue} />
                 </dl>
                 <p className="text-xs text-muted">
                   Rise/set · Moon centre, standard refraction
@@ -1005,7 +1015,7 @@ function ExplainPanel({
                     altitudeDeg < 0 ? "Below horizon" : deg1(altitudeDeg),
                   ],
                   ["Azimuth", `${deg1(azimuthDeg)} · ${compass(azimuthDeg)}`],
-                  ["Rise / set", `${rise} / ${set}`],
+                  ["Rise / set · mean solar, then UTC", `${rise} / ${set}`],
                 ]}
               />
               <p>
