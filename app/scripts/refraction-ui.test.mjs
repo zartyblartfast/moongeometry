@@ -364,10 +364,13 @@ async function assertExport(page, name = "refraction-share") {
   assert.equal(png.width, 1600);
   assert.equal(png.height, 900);
   const scale = 310 / 672;
+  // B changes only the serialized presentation frame, not fixture.point or
+  // physical projection. svgImage uses uniform meet in its 640x672 image.
+  const svgScale = 640 / 296;
   const x = Math.round(
-    1052 + (444 - 640 * scale) / 2 + fixture.point.x * 2 * scale,
+    1052 + (444 - 640 * scale) / 2 + (fixture.point.x - 12) * svgScale * scale,
   );
-  const y = Math.round(354 + fixture.point.y * 2 * scale);
+  const y = Math.round(354 + (16 + (fixture.point.y - 20) * svgScale) * scale);
   for (let dy = -1; dy <= 1; dy++)
     for (let dx = -1; dx <= 1; dx++) {
       const offset = ((y + dy) * png.width + x + dx) * 4;

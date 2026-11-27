@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { SkyPath } from "@/lib/astro";
 import type { AstronomyProviderSnapshot } from "@/lib/astronomy/provider";
 import {
@@ -50,6 +51,29 @@ export function SkyChart({
   orientationHeadingDeg,
   shareChart = true,
 }: Props) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    // Only the visible north-up presentation follows its actual meet scale.
+    // The hidden 1px export uses the stable nominal 256px presentation below.
+    const svg = svgRef.current;
+    if (!svg || shareChart || orientationHeadingDeg !== undefined) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const extent = Math.min(
+        entry.contentRect.width,
+        entry.contentRect.height,
+      );
+      if (extent <= 0) return;
+      const scale = extent / 296;
+      svg.style.setProperty("--sky-label-font", `${12 / scale}px`);
+      svg.style.setProperty("--sky-cardinal-font", `${13 / scale}px`);
+    });
+    observer.observe(svg);
+    return () => {
+      observer.disconnect();
+      svg.style.removeProperty("--sky-label-font");
+      svg.style.removeProperty("--sky-cardinal-font");
+    };
+  }, [shareChart, orientationHeadingDeg]);
   const layout = skyChartLayout(orientationHeadingDeg);
   const { cx, cy, horizonRadius: radius } = layout;
   const moonRuns = runs(moonPath.samples, layout, orientationHeadingDeg);
@@ -95,23 +119,47 @@ export function SkyChart({
       )
     : null;
   const rings = [30, 60];
-  const legacyCards = [
-    { label: "N", x: cx, y: cy - radius - 14 },
-    { label: "E", x: cx + radius + 14, y: cy + 4 },
-    { label: "S", x: cx, y: cy + radius + 18 },
-    { label: "W", x: cx - radius - 14, y: cy + 4 },
+  const northCards = [
+    { label: "N", x: cx, y: cy - radius - 10 },
+    { label: "E", x: cx + radius + 14, y: cy },
+    { label: "S", x: cx, y: cy + radius + 14 },
+    { label: "W", x: cx - radius - 14, y: cy },
   ];
   const orientationGeometry =
     orientationHeadingDeg === undefined
       ? null
       : activeSkyChartGeometry(orientationHeadingDeg);
+  // Two bounded annotation alternatives keep real body markers unobscured.
+  // No projection or path is displaced to make room for a label.
+  const bodyNearSixty = [now, sunNow].some(
+    (point) =>
+      point &&
+      Math.abs(point.x - cx) < 26 &&
+      point.y > cy - 47 &&
+      point.y < cy - 10,
+  );
+  const bodyNearZenith = [now, sunNow].some(
+    (point) =>
+      point && Math.abs(point.x - cx) < 34 && Math.abs(point.y - cy) < 24,
+  );
 
   return (
     <svg
+      ref={svgRef}
       {...(shareChart ? { "data-share-sky-chart": true } : {})}
       data-orientation-active={orientationGeometry ? "true" : undefined}
-      viewBox={`0 0 ${layout.viewBoxWidth} ${layout.viewBoxHeight}`}
-      className="h-full w-full"
+      viewBox={
+        orientationGeometry
+          ? `0 0 ${layout.viewBoxWidth} ${layout.viewBoxHeight}`
+          : "12 20 296 296"
+      }
+      className={
+        // Match the native 208/256px stages on SSR/first paint, before the
+        // observer can compensate for an unusually width-constrained stage.
+        shareChart || orientationGeometry
+          ? "h-full w-full"
+          : "h-full w-full [--sky-label-font:17.076923px] [--sky-cardinal-font:18.5px] lg:[--sky-label-font:13.875px] lg:[--sky-cardinal-font:15.03125px]"
+      }
       role="img"
       aria-label={
         orientationGeometry
@@ -185,58 +233,64 @@ export function SkyChart({
               strokeWidth={1}
               strokeDasharray="2 4"
             />
-            <text
-              x={cx + ringRadius + 4}
-              y={cy - 3}
-              fill="var(--color-muted)"
-              fontSize={10}
-              fontFamily="Outfit, sans-serif"
-            >
-              {alt}°
-            </text>
+            {orientationGeometry ? (
+              <text
+                x={cx + ringRadius + 4}
+                y={cy - 3}
+                fill="var(--color-muted)"
+                fontSize={10}
+                fontFamily="Outfit, sans-serif"
+              >
+                {alt}°
+              </text>
+            ) : null}
           </g>
         );
       })}
-      <text
-        x={cx + radius * 0.63}
-        y={cy - radius * 0.72}
-        textAnchor="middle"
-        fill="var(--color-muted)"
-        fontSize={10}
-        fontFamily="Outfit, sans-serif"
-      >
-        horizon
-      </text>
-      {(orientationGeometry?.cardinals ?? legacyCards).map((cardinal) => (
-        <text
-          key={cardinal.label}
-          data-sky-cardinal={cardinal.label}
-          x={cardinal.x}
-          y={cardinal.y}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="var(--color-muted)"
-          stroke={orientationGeometry ? "var(--color-bg)" : undefined}
-          strokeWidth={orientationGeometry ? 4 : undefined}
-          paintOrder={orientationGeometry ? "stroke fill" : undefined}
-          strokeLinejoin="round"
-          fontSize={orientationGeometry ? 13 : 12}
-          fontWeight={orientationGeometry ? 600 : undefined}
-          fontFamily="Outfit, sans-serif"
-        >
-          {cardinal.label}
-        </text>
-      ))}
-      <text
-        x={cx}
-        y={cy + 4}
-        textAnchor="middle"
-        fill="var(--color-muted)"
-        fontSize={11}
-        fontFamily="Outfit, sans-serif"
-      >
-        zenith
-      </text>
+      {orientationGeometry ? (
+        <>
+          <text
+            x={cx + radius * 0.63}
+            y={cy - radius * 0.72}
+            textAnchor="middle"
+            fill="var(--color-muted)"
+            fontSize={10}
+            fontFamily="Outfit, sans-serif"
+          >
+            horizon
+          </text>
+          {orientationGeometry.cardinals.map((cardinal) => (
+            <text
+              key={cardinal.label}
+              data-sky-cardinal={cardinal.label}
+              x={cardinal.x}
+              y={cardinal.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="var(--color-muted)"
+              stroke="var(--color-bg)"
+              strokeWidth={4}
+              paintOrder="stroke fill"
+              strokeLinejoin="round"
+              fontSize={13}
+              fontWeight={600}
+              fontFamily="Outfit, sans-serif"
+            >
+              {cardinal.label}
+            </text>
+          ))}
+          <text
+            x={cx}
+            y={cy + 4}
+            textAnchor="middle"
+            fill="var(--color-muted)"
+            fontSize={11}
+            fontFamily="Outfit, sans-serif"
+          >
+            zenith
+          </text>
+        </>
+      ) : null}
       {sunRuns.map((points, index) => (
         <polyline
           key={`s${index}`}
@@ -278,6 +332,53 @@ export function SkyChart({
             strokeWidth="1.25"
             strokeLinecap="round"
           />
+        </g>
+      ) : null}
+      {!orientationGeometry ? (
+        <g
+          data-sky-annotations="true"
+          fill="var(--color-muted)"
+          stroke="var(--color-bg)"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          paintOrder="stroke fill"
+          textAnchor="middle"
+          fontFamily="Outfit, sans-serif"
+          fontSize={(12 * 296) / 256}
+          style={
+            !shareChart ? { fontSize: "var(--sky-label-font)" } : undefined
+          }
+        >
+          <text x={100} y={129}>
+            30°
+          </text>
+          <text x={bodyNearSixty ? 125 : 160} y={bodyNearSixty ? 153 : 144}>
+            60°
+          </text>
+          <text x={cx + radius * 0.63} y={78}>
+            horizon
+          </text>
+          {northCards.map((cardinal) => (
+            <text
+              key={cardinal.label}
+              data-sky-cardinal={cardinal.label}
+              x={cardinal.x}
+              y={cardinal.y}
+              dominantBaseline="middle"
+              fontSize={(13 * 296) / 256}
+              fontWeight={500}
+              style={
+                !shareChart
+                  ? { fontSize: "var(--sky-cardinal-font)" }
+                  : undefined
+              }
+            >
+              {cardinal.label}
+            </text>
+          ))}
+          <text x={cx} y={bodyNearZenith ? cy + 32 : 177}>
+            zenith
+          </text>
         </g>
       ) : null}
       {sunNow ? (
