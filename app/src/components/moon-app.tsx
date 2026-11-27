@@ -47,6 +47,7 @@ import {
   createShareInfographic,
   shareInfographicFilename,
 } from "@/lib/share-infographic";
+import { AppDialog, AppDialogDescription, AppDialogTitle } from "./app-dialog";
 import { DeclinationDiagram } from "./declination-diagram";
 import { CheckPrediction } from "./explain-check";
 import { LocalSkyCoordinateDiagrams } from "./local-sky-coordinate-diagrams";
@@ -151,8 +152,20 @@ export function MoonApp() {
   const setPlaying = useMoon((s) => s.setPlaying);
   const setSpinHours = useMoon((s) => s.setSpinHours);
   const setSnap = useMoon((s) => s.setSnap);
+  // A native time input reports an empty value while any segment is incomplete.
+  // Keep that edit local, tied to the moment/location it started from.
+  const [timeDraft, setTimeDraft] = useState<{
+    instant: number;
+    lon: number;
+    value: string;
+  } | null>(null);
+  const editableTime =
+    timeDraft?.instant === instant && timeDraft.lon === lon
+      ? timeDraft.value
+      : timeInputValue(instant, lon);
   const [mounted, setMounted] = useState(false);
-  const [explainOpen, setExplainOpen] = useState(false);
+  const [explainTrigger, setExplainTrigger] =
+    useState<HTMLButtonElement | null>(null);
   const [explainTab, setExplainTab] = useState<ExplainTab>("summary");
   const [orbitInfoOpen, setOrbitInfoOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -164,7 +177,9 @@ export function MoonApp() {
   );
   const [viewingLocationRevision, setViewingLocationRevision] = useState(0);
   const currentLocationRequestRef = useRef(0);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTrigger, setShareTrigger] = useState<HTMLButtonElement | null>(
+    null,
+  );
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareBlob, setShareBlob] = useState<Blob | null>(null);
@@ -296,8 +311,9 @@ export function MoonApp() {
     setInstant(fromLocal(y, m - 1, d, p.h, p.min, lon));
   };
   const onTime = (value: string) => {
+    setTimeDraft({ instant, lon, value });
+    if (!validTime(value)) return;
     const [h, min] = value.split(":").map(Number);
-    if (Number.isNaN(h) || Number.isNaN(min)) return;
     const p = localParts(instant, lon);
     setInstant(fromLocal(p.y, p.m, p.day, h, min, lon));
   };
@@ -366,9 +382,9 @@ export function MoonApp() {
 
   const toggle = (mode: Play) => setPlaying(playing === mode ? "none" : mode);
 
-  const openShare = async () => {
+  const openShare = async (trigger: HTMLButtonElement) => {
     setPlaying("none");
-    setShareOpen(true);
+    setShareTrigger(trigger);
     setShareLoading(true);
     setShareError(null);
     setShareBlob(null);
@@ -629,7 +645,7 @@ export function MoonApp() {
                       {controls}
                       <button
                         type="button"
-                        onClick={() => void openShare()}
+                        onClick={(event) => void openShare(event.currentTarget)}
                         className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
                       >
                         <Share2 size={14} aria-hidden="true" />
@@ -637,7 +653,9 @@ export function MoonApp() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setExplainOpen(true)}
+                        onClick={(event) =>
+                          setExplainTrigger(event.currentTarget)
+                        }
                         className="min-h-9 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
                       >
                         Explain
@@ -744,8 +762,9 @@ export function MoonApp() {
               <input
                 id="mean-solar-time"
                 type="time"
-                value={timeInputValue(instant, lon)}
+                value={editableTime}
                 onChange={(e) => onTime(e.target.value)}
+                onBlur={() => setTimeDraft(null)}
                 suppressHydrationWarning
                 className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
               />
@@ -820,11 +839,12 @@ export function MoonApp() {
           </div>
         </section>
       </main>
-      {explainOpen ? (
+      {explainTrigger ? (
         <ExplainPanel
+          returnFocusTo={explainTrigger}
           tab={explainTab}
           setTab={setExplainTab}
-          onClose={() => setExplainOpen(false)}
+          onClose={() => setExplainTrigger(null)}
           lat={lat}
           lon={lon}
           dateLabel={`${formatDate(instant, lon)} ${formatClock(instant, lon)}`}
@@ -842,14 +862,15 @@ export function MoonApp() {
           set={setLabel}
         />
       ) : null}
-      {shareOpen ? (
+      {shareTrigger ? (
         <ShareInfographicDialog
+          returnFocusTo={shareTrigger}
           previewUrl={sharePreviewUrl}
           blob={shareBlob}
           filename={shareFilename}
           loading={shareLoading}
           error={shareError}
-          onClose={() => setShareOpen(false)}
+          onClose={() => setShareTrigger(null)}
         />
       ) : null}
     </>
@@ -860,6 +881,7 @@ function ExplainPanel({
   tab,
   setTab,
   onClose,
+  returnFocusTo,
   lat,
   lon,
   dateLabel,
@@ -879,6 +901,7 @@ function ExplainPanel({
   tab: ExplainTab;
   setTab: (tab: ExplainTab) => void;
   onClose: () => void;
+  returnFocusTo: HTMLButtonElement;
   lat: number;
   lon: number;
   dateLabel: string;
@@ -904,21 +927,24 @@ function ExplainPanel({
   const refractionDetail = `${refractionDeg.toFixed(3)}°`;
   const apparentDetail = `${altitudeDeg < 0 ? "−" : ""}${Math.abs(altitudeDeg).toFixed(3)}°`;
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/55 p-3"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Explain this moment"
+    <AppDialog
+      onClose={onClose}
+      returnFocusTo={returnFocusTo}
+      overlayClassName="fixed inset-0 z-50 flex justify-end bg-black/55 p-3"
     >
       <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden rounded-card border border-line bg-surface text-fg shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-line p-4">
           <div>
-            <p className="text-xs font-semibold tracking-widest text-gold uppercase">
-              Explain this moment
-            </p>
-            <h2 className="font-display text-2xl">
-              Why the Moon appears there now
-            </h2>
+            <AppDialogTitle asChild>
+              <p className="text-xs font-semibold tracking-widest text-gold uppercase">
+                Explain this moment
+              </p>
+            </AppDialogTitle>
+            <AppDialogDescription asChild>
+              <h2 className="font-display text-2xl">
+                Why the Moon appears there now
+              </h2>
+            </AppDialogDescription>
           </div>
           <button
             type="button"
@@ -1195,7 +1221,7 @@ function ExplainPanel({
           ) : null}
         </div>
       </div>
-    </div>
+    </AppDialog>
   );
 }
 

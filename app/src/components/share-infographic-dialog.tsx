@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Check, Copy, Download, X } from "lucide-react";
+import { AppDialog, AppDialogDescription, AppDialogTitle } from "./app-dialog";
 import { copyPngToClipboard, downloadPng } from "@/lib/share-infographic";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
   loading: boolean;
   error: string | null;
   onClose: () => void;
+  returnFocusTo: HTMLButtonElement;
 };
 
 export function ShareInfographicDialog({
@@ -18,6 +20,7 @@ export function ShareInfographicDialog({
   loading,
   error,
   onClose,
+  returnFocusTo,
 }: Props) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle",
@@ -35,14 +38,11 @@ export function ShareInfographicDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="share-infographic-title"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <AppDialog
+      onClose={onClose}
+      returnFocusTo={returnFocusTo}
+      dismissOnOutside
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm"
     >
       <div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-card bg-surface shadow-2xl ring-1 ring-line">
         <div className="flex items-start justify-between gap-4 border-b border-line px-4 py-3">
@@ -50,16 +50,17 @@ export function ShareInfographicDialog({
             <p className="text-xs font-semibold tracking-widest text-gold uppercase">
               Share this view
             </p>
-            <h2
-              id="share-infographic-title"
-              className="font-display text-2xl text-fg"
-            >
-              Moon Geometry infographic
-            </h2>
-            <p className="text-sm text-muted">
-              The orbital panel uses the exact orientation currently shown on
-              the page.
-            </p>
+            <AppDialogTitle asChild>
+              <h2 className="font-display text-2xl text-fg">
+                Moon Geometry infographic
+              </h2>
+            </AppDialogTitle>
+            <AppDialogDescription asChild>
+              <p className="text-sm text-muted">
+                The orbital panel uses the exact orientation currently shown on
+                the page.
+              </p>
+            </AppDialogDescription>
           </div>
           <button
             type="button"
@@ -119,6 +120,6 @@ export function ShareInfographicDialog({
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   );
 }
