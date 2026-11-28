@@ -837,7 +837,12 @@ export function SpaceScene({
         new THREE.Vector3(0, 0, 1),
         zen.clone().normalize(),
       );
-      setSeg(sight, [zen.x * EARTH, zen.y * EARTH, zen.z * EARTH], moonPos);
+      // Share the displayed marker's anchor so perspective/zoom cannot open a gap.
+      setSeg(
+        sight,
+        [figure.position.x, figure.position.y, figure.position.z],
+        moonPos,
+      );
       const beam = sunBeam(sunUnit);
       sunV.set(sunUnit[0], sunUnit[1], sunUnit[2]);
       sideV.crossVectors(poleV, sunV).normalize();
