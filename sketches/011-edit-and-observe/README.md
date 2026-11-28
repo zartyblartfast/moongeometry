@@ -1,6 +1,6 @@
 # 011 — Live edit-and-observe studies
 
-**Local comparison artifacts, not production implementation. Neither proposal is approved.** These studies address only the measured expanded, short-height landscape edit/observe separation. Desktop, portrait and collapsed layouts are intentionally unchanged.
+**Selected direction: B — Chart-adjacent, with Fit viewport.** The user confirmed this choice after accepting the observer sightline correction (`20f618f`). Fit viewport means responsive use of the available viewing area, not a fixed 844 × 390 canvas or a new astronomy/camera control. These remain local study artifacts, not an integrated production layout. Carry the corrected sightline forward; preserve the working desktop, portrait and collapsed layouts while addressing the measured expanded, short-height landscape edit/observe separation. Integration still requires deliberate semantic/keyboard order and normal verification; this selection is not deployment approval.
 
 ## Launch
 
@@ -48,7 +48,7 @@ Baseline, not a third proposal. The expanded editor precedes the sky on this pho
 - **Strength:** the clearest edit/observe loop and only one normal page scroll surface; the tested comfortable comparison position is scrollY=123, then zero comparison/return scrolling across all four exact edits.
 - **Cost:** time/latitude visually precede other editor controls, while native semantic/focus order remains unchanged. Flattened panel boxes also weaken the previous panel grouping. A real implementation would need deliberate keyboard/screen-reader reading-order review, not blind copying of this presentation-only CSS.
 
-**Recommendation for review:** B is the stronger hypothesis for this narrowly demonstrated task. A is useful if preserving the whole editor's existing grouping matters more than avoiding nested scrolling. Neither is a reason to change the desktop workbench, collapse scientific content, shrink the chart or promote an untested production change.
+**Decision:** use B with Fit viewport; keep A only as a comparison reference. Do not turn the review canvas-size selector into a production feature. B is not a reason to change the working desktop workbench, collapse scientific content, shrink the chart or promote an untested production change.
 
 ## Scoped verification
 
