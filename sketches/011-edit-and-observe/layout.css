@@ -1,0 +1,44 @@
+/* Presentation only: every rule except DEV Preview hiding requires the narrow gate. */
+[data-study-preview] { display: none !important; }
+@media (min-width:640px) and (max-width:1023px) and (max-height:540px) {
+  html[data-study-expanded="true"][data-study-variant="a"] [data-study-main] {
+    display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); align-items: start;
+  }
+  html[data-study-expanded="true"][data-study-variant="a"] [data-study-main] > header { grid-column: 1 / -1; grid-row: 1; }
+  html[data-study-expanded="true"][data-study-variant="a"] [data-study-diagrams] { display: contents; }
+  html[data-study-expanded="true"][data-study-variant="a"] [data-study-place] { grid-column: 1; grid-row: 2; grid-template-columns: minmax(0,1fr); }
+  html[data-study-expanded="true"][data-study-variant="a"] [data-study-place] > form,
+  html[data-study-expanded="true"][data-study-variant="a"] #manual-moment-fields > * { grid-column: 1; min-width: 0; }
+  html[data-study-expanded="true"][data-study-variant="a"] [data-study-sky] {
+    grid-column: 2; grid-row: 2; position: sticky; top: 8px; max-height: calc(100dvh - 16px); overflow: auto; scrollbar-gutter: stable; min-width: 0;
+  }
+  html[data-study-expanded="true"][data-study-variant="a"] [data-study-orbit] { grid-column: 1 / -1; grid-row: 3; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-main] {
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; gap: 8px 12px;
+  }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-main] > header { grid-column: 1 / -1; grid-row: 1; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-diagrams],
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-sky],
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-place],
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields { display: contents; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-sky] > *,
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-place] > *,
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields > * { grid-column: 1 / -1; min-width: 0; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-local-sky-header] { grid-row: 2; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-notice="1"] { grid-row: 3; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-notice="2"] { grid-row: 4; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-status] { grid-row: 5; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-stage] { grid-column: 1; grid-row: 6 / 8; }
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields > [data-study-time] { grid-column: 2; grid-row: 6; }
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields > [data-study-latitude] { grid-column: 2; grid-row: 7; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-detail="1"] { grid-row: 8; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-detail="2"] { grid-row: 9; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-detail="3"] { grid-row: 10; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-detail="4"] { grid-row: 11; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-place] > form { grid-row: 12; }
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields > :nth-child(1) { grid-row: 13; }
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields > :nth-child(4) { grid-row: 14; }
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields > :nth-child(5) { grid-row: 15; }
+  html[data-study-expanded="true"][data-study-variant="b"] #manual-moment-fields > :nth-child(6) { grid-row: 16; }
+  html[data-study-expanded="true"][data-study-variant="b"] [data-study-orbit] { grid-column: 1 / -1; grid-row: 17; }
+}
