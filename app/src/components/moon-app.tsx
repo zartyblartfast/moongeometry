@@ -855,6 +855,14 @@ export function MoonApp() {
             ) : null}
           </div>
           <div className="grid gap-2 p-2.5">
+            {altDeg < 0 ? (
+              <p className="text-xs text-muted">
+                {orbit !== instant || playing === "slide"
+                  ? "Simulated Moon below your horizon"
+                  : "Moon below your horizon"}{" "}
+                — Earth blocks the sightline.
+              </p>
+            ) : null}
             <div>
               <p className="mb-1 text-[0.68rem] font-semibold tracking-widest text-muted uppercase">
                 Model view
