@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Share2 } from "lucide-react";
 import {
@@ -169,6 +176,41 @@ export function MoonApp() {
   const [explainTab, setExplainTab] = useState<ExplainTab>("summary");
   const [orbitInfoOpen, setOrbitInfoOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [shortLandscape, setShortLandscape] = useState(false);
+  const landscapeEditor = manualOpen && shortLandscape;
+  const focusPrimaryOnOpen = useRef(false);
+  const primaryFocusBeforeResize = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const selector = primaryFocusBeforeResize.current;
+    if (selector) {
+      document
+        .querySelector<HTMLElement>(selector)
+        ?.focus({ preventScroll: true });
+    } else if (landscapeEditor && focusPrimaryOnOpen.current) {
+      document.getElementById("mean-solar-time")?.focus();
+    }
+    primaryFocusBeforeResize.current = null;
+    focusPrimaryOnOpen.current = false;
+  }, [landscapeEditor, shortLandscape]);
+  useEffect(() => {
+    const media = window.matchMedia(
+      "(min-width: 640px) and (max-width: 1023px) and (max-height: 540px)",
+    );
+    const update = () => {
+      // Inputs move only at this mode boundary; the charts never move in React.
+      const active = document.activeElement;
+      primaryFocusBeforeResize.current =
+        active?.id === "mean-solar-time" || active?.id === "observer-latitude"
+          ? `#${active.id}`
+          : active?.matches('.observation-time input[type="range"]')
+            ? '.observation-time input[type="range"]'
+            : null;
+      setShortLandscape(media.matches);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const [selectedPlace, setSelectedPlace] = useState<RememberedPlace | null>(
     null,
   );
@@ -449,9 +491,62 @@ export function MoonApp() {
     }
   };
 
+  const primaryFields = (
+    <>
+      <div className="observation-time flex flex-col gap-0.5 text-sm text-muted lg:col-span-2">
+        <label htmlFor="mean-solar-time">Mean solar time</label>
+        <input
+          id="mean-solar-time"
+          type="time"
+          value={editableTime}
+          onChange={(e) => onTime(e.target.value)}
+          onBlur={() => setTimeDraft(null)}
+          suppressHydrationWarning
+          className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
+        />
+        <TimeScrubber minute={scrubberMinute} onChange={onTimeScrub} />
+        <span className="text-xs text-muted">
+          {formatUtcMomentLine(instant, lon)}
+        </span>
+        <span
+          className="text-xs text-muted"
+          title={
+            civilTime.status === "ready"
+              ? `IANA zone: ${civilTime.value.timeZoneId}`
+              : undefined
+          }
+        >
+          {civilTime.status === "loading"
+            ? "Civil · calculating…"
+            : civilTime.status === "unavailable"
+              ? "Civil · unavailable"
+              : composeCivilTimeLine(
+                  civilTime.value,
+                  localParts(instant, lon).y,
+                )}
+        </span>
+      </div>
+      <Slider
+        id="observer-latitude"
+        label={`Latitude ${lat.toFixed(1)}°`}
+        min={-90}
+        max={90}
+        step={0.1}
+        value={lat}
+        onChange={(value) => {
+          clearCurrentDeviceSource("manual");
+          setLat(value);
+        }}
+      />
+    </>
+  );
+
   return (
     <>
-      <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-2 px-4 py-2 lg:px-5 lg:py-2.5">
+      <main
+        data-landscape-editor={landscapeEditor || undefined}
+        className="moon-workspace mx-auto min-h-screen w-full max-w-7xl gap-2 px-4 py-2 lg:px-5 lg:py-2.5"
+      >
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-medium tracking-widest text-gold uppercase">
@@ -497,188 +592,92 @@ export function MoonApp() {
           </div>
         </header>
 
-        <div className="order-last grid gap-3 lg:order-none lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
-          <section className="order-last flex flex-col overflow-hidden rounded-card bg-surface lg:order-first">
-            <div className="relative h-80 min-h-72 lg:h-[24.25rem]">
-              <SpaceScene snapshot={sky} orbitInstant={orbit} />
-              <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1 text-xs">
-                <h2 className="mb-1 text-sm font-semibold text-fg">
-                  Orbital geometry
-                </h2>
-                <span className="text-equator">Equator</span>
-                <span className="text-gold">Ecliptic 23.4°</span>
-                <span className="text-gold">Parallel sunlight</span>
-                <span className="text-silver">Moon orbit 5.1°</span>
-              </div>
-              <button
-                type="button"
-                aria-label="Explain the orbital geometry colors"
-                onClick={() => setOrbitInfoOpen((open) => !open)}
-                className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-sm font-bold text-fg ring-1 ring-line hover:bg-line"
-              >
-                i
-              </button>
-              {orbitInfoOpen ? (
-                <div className="absolute right-3 top-12 max-w-sm rounded-lg bg-bg/95 p-3 text-xs leading-5 text-muted ring-1 ring-line shadow-xl">
-                  <button
-                    type="button"
-                    aria-label="Close orbital geometry note"
-                    onClick={() => setOrbitInfoOpen(false)}
-                    className="float-right ml-3 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-fg hover:bg-line"
-                  >
-                    ×
-                  </button>
-                  {motion}
-                </div>
-              ) : null}
-            </div>
-            <div className="grid gap-2 p-2.5">
-              <div>
-                <p className="mb-1 text-[0.68rem] font-semibold tracking-widest text-muted uppercase">
-                  Model view
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {SNAPS.map((item) => (
+        <OrientationControl
+          snapshot={sky}
+          moonPath={observed.moonPath}
+          sunPath={observed.sunPath}
+          selectedLatDeg={lat}
+          selectedLonDeg={lon}
+          currentLocationAvailable={currentDeviceLocationAvailable(
+            viewingLocationSource,
+          )}
+          locationRevision={viewingLocationRevision}
+          instant={instant}
+          stopAnimation={() => setPlaying("none")}
+
+          adoptDeviceLocation={(deviceLat, deviceLon) => {
+            const deviceLocation = roundDeviceLocation(deviceLat, deviceLon);
+            if (deviceLocation === null) return;
+            setSelectedPlace(null);
+            setLat(deviceLocation.latDeg);
+            setLon(deviceLocation.lonDeg);
+          }}
+        >
+          {({ controls, status, chart, orientationActive }) => (
+            <section className="local-sky-panel flex flex-col gap-2 rounded-card bg-surface p-3">
+              <LocalSkyHeader
+                phase={
+                  <MoonPhase
+                    illumination={sky.moon.illumination}
+                    waxing={sky.moon.waxing}
+                    latitude={lat}
+                    size={44}
+                  />
+                }
+                title={
+                  <>
+                    <h2 className="text-sm font-semibold text-fg">
+                      Local sky path
+                    </h2>
+                    <p className="font-display text-xl text-fg">
+                      {sky.moon.phaseName}
+                    </p>
+                    <p className="text-sm text-muted">
+                      {Math.round(sky.moon.illumination * 100)}% lit ·{" "}
+                      {formatDate(instant, lon)} {formatClock(instant, lon)}
+                    </p>
+                  </>
+                }
+                controls={
+                  <>
+                    {controls}
                     <button
-                      key={item.id}
                       type="button"
-                      aria-pressed={snap === item.id}
-                      onClick={() => setSnap(item.id)}
-                      className={
-                        "min-h-9 rounded-full px-3 text-sm " +
-                        (snap === item.id
-                          ? "bg-fg text-bg"
-                          : "bg-surface-2 text-fg")
-                      }
+                      onClick={(event) => void openShare(event.currentTarget)}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
                     >
-                      {item.label}
+                      <Share2 size={14} aria-hidden="true" />
+                      Share
                     </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1 text-[0.68rem] font-semibold tracking-widest text-muted uppercase">
-                  Animate / presets
+                    <button
+                      type="button"
+                      onClick={(event) =>
+                        setExplainTrigger(event.currentTarget)
+                      }
+                      className="min-h-9 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
+                    >
+                      Explain
+                    </button>
+                  </>
+                }
+              />
+              {status}
+              {orbit !== instant || playing === "slide" ? (
+                <p className="text-xs text-muted">
+                  <span className="font-semibold text-gold">
+                    Simulated sky.
+                  </span>{" "}
+                  The orbital position moves separately from the observer’s
+                  clock. Set the date and time again before comparing this sky
+                  with an observation.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <Toggle
-                    on={playing === "spin"}
-                    onClick={() => toggle("spin")}
-                  >
-                    Spin Earth
-                  </Toggle>
-                  <Toggle
-                    on={playing === "slide"}
-                    onClick={() => toggle("slide")}
-                  >
-                    Slide the Moon
-                  </Toggle>
-                  <button
-                    type="button"
-                    className="min-h-9 rounded-full bg-surface-2 px-3 text-sm text-fg"
-                    onClick={() =>
-                      setInstant(nearestFullEvening(2026, 11, lon))
-                    }
-                  >
-                    Winter full Moon
-                  </button>
-                  <button
-                    type="button"
-                    className="min-h-9 rounded-full bg-surface-2 px-3 text-sm text-fg"
-                    onClick={() => setInstant(nearestFullEvening(2026, 5, lon))}
-                  >
-                    Summer full Moon
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <OrientationControl
-            snapshot={sky}
-            moonPath={observed.moonPath}
-            sunPath={observed.sunPath}
-            selectedLatDeg={lat}
-            selectedLonDeg={lon}
-            currentLocationAvailable={currentDeviceLocationAvailable(
-              viewingLocationSource,
-            )}
-            locationRevision={viewingLocationRevision}
-            instant={instant}
-            stopAnimation={() => setPlaying("none")}
-
-            adoptDeviceLocation={(deviceLat, deviceLon) => {
-              const deviceLocation = roundDeviceLocation(deviceLat, deviceLon);
-              if (deviceLocation === null) return;
-              setSelectedPlace(null);
-              setLat(deviceLocation.latDeg);
-              setLon(deviceLocation.lonDeg);
-            }}
-          >
-            {({ controls, status, chart, orientationActive }) => (
-              <section className="flex flex-col gap-2 rounded-card bg-surface p-3">
-                <LocalSkyHeader
-                  phase={
-                    <MoonPhase
-                      illumination={sky.moon.illumination}
-                      waxing={sky.moon.waxing}
-                      latitude={lat}
-                      size={44}
-                    />
-                  }
-                  title={
-                    <>
-                      <h2 className="text-sm font-semibold text-fg">
-                        Local sky path
-                      </h2>
-                      <p className="font-display text-xl text-fg">
-                        {sky.moon.phaseName}
-                      </p>
-                      <p className="text-sm text-muted">
-                        {Math.round(sky.moon.illumination * 100)}% lit ·{" "}
-                        {formatDate(instant, lon)} {formatClock(instant, lon)}
-                      </p>
-                    </>
-                  }
-                  controls={
-                    <>
-                      {controls}
-                      <button
-                        type="button"
-                        onClick={(event) => void openShare(event.currentTarget)}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
-                      >
-                        <Share2 size={14} aria-hidden="true" />
-                        Share
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) =>
-                          setExplainTrigger(event.currentTarget)
-                        }
-                        className="min-h-9 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line"
-                      >
-                        Explain
-                      </button>
-                    </>
-                  }
-                />
-                {status}
-                {orbit !== instant || playing === "slide" ? (
-                  <p className="text-xs text-muted">
-                    <span className="font-semibold text-gold">
-                      Simulated sky.
-                    </span>{" "}
-                    The orbital position moves separately from the observer’s
-                    clock. Set the date and time again before comparing this sky
-                    with an observation.
-                  </p>
-                ) : null}
-                <p className="text-sm text-fg lg:hidden">
-                  {altDeg < 0
-                    ? "The Moon is below the horizon."
-                    : `The Moon is ${deg1(altDeg)} above the horizon, toward ${compass(azDeg)}.`}
-                </p>
+              ) : null}
+              <p className="text-sm text-fg lg:hidden">
+                {altDeg < 0
+                  ? "The Moon is below the horizon."
+                  : `The Moon is ${deg1(altDeg)} above the horizon, toward ${compass(azDeg)}.`}
+              </p>
+              <div className="sky-comparison">
                 <div
                   className={
                     orientationActive
@@ -688,49 +687,58 @@ export function MoonApp() {
                 >
                   {chart}
                 </div>
-                <p className="text-xs text-muted">
-                  Center is the zenith over the selected latitude/longitude.
-                  Gold path/dot = Sun; silver path/dot = Moon
-                  {orientationActive
-                    ? ". Fixed scale and sight stay aligned with the phone’s top edge."
-                    : "; small tick = top of Moon path."}
-                </p>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <Stat
-                    k={
-                      <>
-                        <span>Apparent altitude</span>
-                        <span className="rounded-full border border-gold/30 bg-gold/10 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
-                          Standard atmosphere
-                        </span>
-                      </>
-                    }
-                    v={altitudeLabel}
-                  />
-                  <Stat k="Azimuth" v={azimuthLabel} />
-                  <Stat k="Declination" v={deg1(sky.decDeg)} />
-                  <Stat
-                    k="Top of path"
-                    v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)}
-                  />
-                  <Stat k="Rise · mean solar" v={riseValue} />
-                  <Stat k="Set · mean solar" v={setValue} />
-                </dl>
-                <p className="text-xs text-muted">
-                  Rise/set · Moon centre, standard refraction
-                </p>
-                <p className="text-sm text-fg">
-                  Geometric h at meridian = 90° − |{lat.toFixed(1)}° −{" "}
-                  {deg1(sky.decDeg)}|; the displayed path adds refraction.
-                </p>
-              </section>
-            )}
-          </OrientationControl>
-        </div>
+                {landscapeEditor && (
+                  <fieldset
+                    id="primary-observation-fields"
+                    className="primary-observation-fields"
+                  >
+                    <legend className="sr-only">Time and latitude</legend>
+                    {primaryFields}
+                  </fieldset>
+                )}
+              </div>
+              <p className="text-xs text-muted">
+                Center is the zenith over the selected latitude/longitude. Gold
+                path/dot = Sun; silver path/dot = Moon
+                {orientationActive
+                  ? ". Fixed scale and sight stay aligned with the phone’s top edge."
+                  : "; small tick = top of Moon path."}
+              </p>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <Stat
+                  k={
+                    <>
+                      <span>Apparent altitude</span>
+                      <span className="rounded-full border border-gold/30 bg-gold/10 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
+                        Standard atmosphere
+                      </span>
+                    </>
+                  }
+                  v={altitudeLabel}
+                />
+                <Stat k="Azimuth" v={azimuthLabel} />
+                <Stat k="Declination" v={deg1(sky.decDeg)} />
+                <Stat
+                  k="Top of path"
+                  v={ev.transitAlt == null ? "—" : deg1(ev.transitAlt)}
+                />
+                <Stat k="Rise · mean solar" v={riseValue} />
+                <Stat k="Set · mean solar" v={setValue} />
+              </dl>
+              <p className="text-xs text-muted">
+                Rise/set · Moon centre, standard refraction
+              </p>
+              <p className="text-sm text-fg">
+                Geometric h at meridian = 90° − |{lat.toFixed(1)}° −{" "}
+                {deg1(sky.decDeg)}|; the displayed path adds refraction.
+              </p>
+            </section>
+          )}
+        </OrientationControl>
 
         <section
           aria-label="Place and time"
-          className="grid gap-2 rounded-card bg-surface p-2.5 sm:grid-cols-2 lg:grid-cols-9"
+          className="place-time-panel grid gap-2 rounded-card bg-surface p-2.5 sm:grid-cols-2 lg:grid-cols-9"
         >
           <PlaceSearch
             lat={lat}
@@ -741,7 +749,14 @@ export function MoonApp() {
             onUseCurrentTime={() => setInstant(Date.now())}
             moment={`${formatDate(instant, lon)} ${formatClock(instant, lon)}`}
             expanded={manualOpen}
-            onToggle={() => setManualOpen((open) => !open)}
+            primaryFieldsId={
+              landscapeEditor ? "primary-observation-fields" : undefined
+            }
+            onToggle={(event) => {
+              focusPrimaryOnOpen.current =
+                shortLandscape && !manualOpen && event.detail === 0;
+              setManualOpen((open) => !open);
+            }}
             onSelect={(place) => {
               clearCurrentDeviceSource("search");
               setSelectedPlace({
@@ -767,50 +782,7 @@ export function MoonApp() {
                 className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
               />
             </label>
-            <div className="flex flex-col gap-0.5 text-sm text-muted lg:col-span-2">
-              <label htmlFor="mean-solar-time">Mean solar time</label>
-              <input
-                id="mean-solar-time"
-                type="time"
-                value={editableTime}
-                onChange={(e) => onTime(e.target.value)}
-                onBlur={() => setTimeDraft(null)}
-                suppressHydrationWarning
-                className="min-h-9 rounded-lg bg-surface-2 px-3 text-fg"
-              />
-              <TimeScrubber minute={scrubberMinute} onChange={onTimeScrub} />
-              <span className="text-xs text-muted">
-                {formatUtcMomentLine(instant, lon)}
-              </span>
-              <span
-                className="text-xs text-muted"
-                title={
-                  civilTime.status === "ready"
-                    ? `IANA zone: ${civilTime.value.timeZoneId}`
-                    : undefined
-                }
-              >
-                {civilTime.status === "loading"
-                  ? "Civil · calculating…"
-                  : civilTime.status === "unavailable"
-                    ? "Civil · unavailable"
-                    : composeCivilTimeLine(
-                        civilTime.value,
-                        localParts(instant, lon).y,
-                      )}
-              </span>
-            </div>
-            <Slider
-              label={`Latitude ${lat.toFixed(1)}°`}
-              min={-90}
-              max={90}
-              step={0.1}
-              value={lat}
-              onChange={(value) => {
-                clearCurrentDeviceSource("manual");
-                setLat(value);
-              }}
-            />
+            {!landscapeEditor && primaryFields}
             <Slider
               label={`Longitude ${lon.toFixed(1)}°`}
               min={-180}
@@ -846,6 +818,96 @@ export function MoonApp() {
               The Earth spin slider sets the pace, from one night up to a whole
               year. Slide the Moon holds the clock and lets declination drift.
             </p>
+          </div>
+        </section>
+        <section className="orbital-panel order-last flex flex-col overflow-hidden rounded-card bg-surface lg:order-first">
+          <div className="relative h-80 min-h-72 lg:h-[24.25rem]">
+            <SpaceScene snapshot={sky} orbitInstant={orbit} />
+            <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1 text-xs">
+              <h2 className="mb-1 text-sm font-semibold text-fg">
+                Orbital geometry
+              </h2>
+              <span className="text-equator">Equator</span>
+              <span className="text-gold">Ecliptic 23.4°</span>
+              <span className="text-gold">Parallel sunlight</span>
+              <span className="text-silver">Moon orbit 5.1°</span>
+            </div>
+            <button
+              type="button"
+              aria-label="Explain the orbital geometry colors"
+              onClick={() => setOrbitInfoOpen((open) => !open)}
+              className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-sm font-bold text-fg ring-1 ring-line hover:bg-line"
+            >
+              i
+            </button>
+            {orbitInfoOpen ? (
+              <div className="absolute right-3 top-12 max-w-sm rounded-lg bg-bg/95 p-3 text-xs leading-5 text-muted ring-1 ring-line shadow-xl">
+                <button
+                  type="button"
+                  aria-label="Close orbital geometry note"
+                  onClick={() => setOrbitInfoOpen(false)}
+                  className="float-right ml-3 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-fg hover:bg-line"
+                >
+                  ×
+                </button>
+                {motion}
+              </div>
+            ) : null}
+          </div>
+          <div className="grid gap-2 p-2.5">
+            <div>
+              <p className="mb-1 text-[0.68rem] font-semibold tracking-widest text-muted uppercase">
+                Model view
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {SNAPS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={snap === item.id}
+                    onClick={() => setSnap(item.id)}
+                    className={
+                      "min-h-9 rounded-full px-3 text-sm " +
+                      (snap === item.id
+                        ? "bg-fg text-bg"
+                        : "bg-surface-2 text-fg")
+                    }
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-[0.68rem] font-semibold tracking-widest text-muted uppercase">
+                Animate / presets
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Toggle on={playing === "spin"} onClick={() => toggle("spin")}>
+                  Spin Earth
+                </Toggle>
+                <Toggle
+                  on={playing === "slide"}
+                  onClick={() => toggle("slide")}
+                >
+                  Slide the Moon
+                </Toggle>
+                <button
+                  type="button"
+                  className="min-h-9 rounded-full bg-surface-2 px-3 text-sm text-fg"
+                  onClick={() => setInstant(nearestFullEvening(2026, 11, lon))}
+                >
+                  Winter full Moon
+                </button>
+                <button
+                  type="button"
+                  className="min-h-9 rounded-full bg-surface-2 px-3 text-sm text-fg"
+                  onClick={() => setInstant(nearestFullEvening(2026, 5, lon))}
+                >
+                  Summer full Moon
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -1311,6 +1373,7 @@ function Stat({ k, v }: { k: ReactNode; v: ReactNode }) {
 }
 
 function Slider({
+  id,
   label,
   min,
   max,
@@ -1318,6 +1381,7 @@ function Slider({
   value,
   onChange,
 }: {
+  id?: string;
   label: string;
   min: number;
   max: number;
@@ -1329,6 +1393,7 @@ function Slider({
     <label className="flex flex-col gap-1 text-sm text-muted">
       {label}
       <input
+        id={id}
         type="range"
         min={min}
         max={max}

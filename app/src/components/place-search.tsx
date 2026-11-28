@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, type MouseEvent, useEffect, useRef, useState } from "react";
 import { searchPlaces, type PlaceResult } from "@/lib/geocode";
 import {
   rememberedPlaceForCoordinates,
@@ -18,7 +18,8 @@ type PlaceSearchProps = {
   onUseCurrentTime: () => void;
   moment: string;
   expanded: boolean;
-  onToggle: () => void;
+  primaryFieldsId?: string;
+  onToggle: (event: MouseEvent<HTMLButtonElement>) => void;
   onSelect: (place: PlaceResult) => void;
 };
 
@@ -31,6 +32,7 @@ export function PlaceSearch({
   onUseCurrentTime,
   moment,
   expanded,
+  primaryFieldsId,
   onToggle,
   onSelect,
 }: PlaceSearchProps) {
@@ -119,11 +121,7 @@ export function PlaceSearch({
           Use current time
         </button>
       </div>
-      <span
-        role="status"
-        aria-live="polite"
-        className="text-xs text-fg"
-      >
+      <span role="status" aria-live="polite" className="text-xs text-fg">
         {currentDeviceLocationMessage(locationSource, lat, lon)}
       </span>
       <div className="text-sm lg:hidden">
@@ -138,7 +136,7 @@ export function PlaceSearch({
       <button
         type="button"
         aria-expanded={expanded}
-        aria-controls="place-search-fields manual-moment-fields"
+        aria-controls={`place-search-fields manual-moment-fields${primaryFieldsId ? ` ${primaryFieldsId}` : ""}`}
         onClick={onToggle}
         className="min-h-9 self-start text-sm font-semibold text-gold lg:hidden"
       >
